@@ -27,6 +27,7 @@ public class AttestationServer {
 
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
         server.createContext("/submit", new SubmitHandler());
+        server.createContext("/verify", new VerifyHandler());
         server.setExecutor(Executors.newCachedThreadPool());
         server.start();
     }
@@ -66,6 +67,44 @@ public class AttestationServer {
 
                 final String response = "Success\n";
                 exchange.sendResponseHeaders(200, response.length());
+                final OutputStream output = exchange.getResponseBody();
+                output.write(response.getBytes());
+                output.close();
+            } else {
+                final String response = "Invalid request\n";
+                exchange.sendResponseHeaders(400, response.length());
+                final OutputStream output = exchange.getResponseBody();
+                output.write(response.getBytes());
+                output.close();
+            }
+        }
+    }
+
+    private static class VerifyHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                final InputStream input = exchange.getRequestBody();
+
+                final ByteArrayOutputStream attestation = new ByteArrayOutputStream();
+                byte[] buffer = new byte[4096];
+                for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
+                    attestation.write(buffer, 0, read);
+
+                    if (attestation.size() > AttestationProtocol.MAX_MESSAGE_SIZE) {
+                        final String response = "Attestation too large\n";
+                        exchange.sendResponseHeaders(400, response.length());
+                        final OutputStream output = exchange.getResponseBody();
+                        output.write(response.getBytes());
+                        output.close();
+                        return;
+                    }
+                }
+
+                final byte[] bytes = attestation.toByteArray();
+
+                final String response = "Not implemented yet\n";
+                exchange.sendResponseHeaders(501, response.length());
                 final OutputStream output = exchange.getResponseBody();
                 output.write(response.getBytes());
                 output.close();
