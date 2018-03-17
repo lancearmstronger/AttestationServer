@@ -17,8 +17,10 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 
 public class AttestationServer {
+    private static final File SAMPLES_DATABASE = new File("samples.db");
+
     public static void main(final String[] args) throws Exception {
-        final SQLiteConnection db = new SQLiteConnection(new File("database.db"));
+        final SQLiteConnection db = new SQLiteConnection(SAMPLES_DATABASE);
         db.open();
         db.exec("CREATE TABLE IF NOT EXISTS SAMPLES (SAMPLE TEXT NOT NULL)");
         db.dispose();
@@ -51,7 +53,7 @@ public class AttestationServer {
                 }
 
                 try {
-                    final SQLiteConnection db = new SQLiteConnection(new File("database.db"));
+                    final SQLiteConnection db = new SQLiteConnection(SAMPLES_DATABASE);
                     db.open();
                     SQLiteStatement st = db.prepare("INSERT INTO samples VALUES (?)");
                     st.bind(1, sample.toByteArray());
