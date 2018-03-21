@@ -1,5 +1,6 @@
 package attestationserver;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
@@ -10,8 +11,14 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.SignatureException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -20,6 +27,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
+
+import co.copperhead.attestation.attestation.Attestation;
+import co.copperhead.attestation.attestation.AttestationApplicationId;
+import co.copperhead.attestation.attestation.AttestationPackageInfo;
+import co.copperhead.attestation.attestation.AuthorizationList;
+import co.copperhead.attestation.attestation.RootOfTrust;
 
 class AttestationProtocol {
     static final int CHALLENGE_LENGTH = 32;
@@ -120,6 +133,63 @@ class AttestationProtocol {
             OS_ENFORCED_FLAGS_DENY_NEW_USB |
             OS_ENFORCED_FLAGS_DEVICE_ADMIN_NON_SYSTEM;
 
+    private static final String ATTESTATION_APP_PACKAGE_NAME = "co.copperhead.attestation";
+    private static final int ATTESTATION_APP_MINIMUM_VERSION = 7;
+    private static final String ATTESTATION_APP_SIGNATURE_DIGEST_DEBUG =
+            "17727D8B61D55A864936B1A7B4A2554A15151F32EBCF44CDAA6E6C3258231890";
+    private static final String ATTESTATION_APP_SIGNATURE_DIGEST_RELEASE =
+            "BE9FDEEE9EB474CEEB57B7795B75B0DFC0970EAA513574BC37A598E153916A8A";
+    private static final int OS_VERSION_MINIMUM = 80000;
+    private static final int OS_PATCH_LEVEL_MINIMUM = 201801;
+
+    private static final String BKL_L04 = "Huawei Honor View 10 (BKL-L04)";
+    private static final String PIXEL_2 = "Google Pixel 2";
+    private static final String PIXEL_2_XL = "Google Pixel 2 XL";
+    private static final String SM_G960U = "Samsung Galaxy S9 (SM-G960U)";
+    private static final String SM_G965F = "Samsung Galaxy S9+ (SM-G965F)";
+    private static final String SM_G965_MSM = "Samsung Galaxy S9+ (Snapdragon)";
+    private static final String H3113 = "Sony Xperia XA2 (H3113)";
+
+    private static class DeviceInfo {
+        final String name;
+        final int attestationVersion;
+        final int keymasterVersion;
+        final boolean rollbackResistant;
+
+        DeviceInfo(final String name, final int attestationVersion, final int keymasterVersion,
+                final boolean rollbackResistant) {
+            this.name = name;
+            this.attestationVersion = attestationVersion;
+            this.keymasterVersion = keymasterVersion;
+            this.rollbackResistant = rollbackResistant;
+        }
+    }
+
+    private static final ImmutableMap<String, DeviceInfo> fingerprintsCopperheadOS = ImmutableMap
+            .<String, DeviceInfo>builder()
+            .put("36D067F8517A2284781B99A2984966BFF02D3F47310F831FCDCC4D792426B6DF",
+                    new DeviceInfo(PIXEL_2, 2, 3, true))
+            .put("815DCBA82BAC1B1758211FF53CAA0B6883CB6C901BE285E1B291C8BDAA12DF75",
+                    new DeviceInfo(PIXEL_2_XL, 2, 3, true))
+            .build();
+    private static final ImmutableMap<String, DeviceInfo> fingerprintsStock = ImmutableMap
+            .<String, DeviceInfo>builder()
+            .put("5341E6B2646979A70E57653007A1F310169421EC9BDD9F1A5648F75ADE005AF1",
+                    new DeviceInfo(BKL_L04, 2, 3, false))
+            .put("1962B0538579FFCE9AC9F507C46AFE3B92055BAC7146462283C85C500BE78D82",
+                    new DeviceInfo(PIXEL_2, 2, 3, true))
+            .put("171616EAEF26009FC46DC6D89F3D24217E926C81A67CE65D2E3A9DC27040C7AB",
+                    new DeviceInfo(PIXEL_2_XL, 2, 3, true))
+            .put("266869F7CF2FB56008EFC4BE8946C8F84190577F9CA688F59C72DD585E696488",
+                    new DeviceInfo(SM_G960U, 1, 2, false))
+            .put("D1C53B7A931909EC37F1939B14621C6E4FD19BF9079D195F86B3CEA47CD1F92D",
+                    new DeviceInfo(SM_G965F, 1, 2, false))
+            .put("A4A544C2CFBAEAA88C12360C2E4B44C29722FC8DBB81392A6C1FAEDB7BF63010",
+                    new DeviceInfo(SM_G965_MSM, 1, 2, false))
+            .put("4285AD64745CC79B4499817F264DC16BF2AF5163AF6C328964F39E61EC84693E",
+                    new DeviceInfo(H3113, 2, 3, true))
+            .build();
+
     private static final String GOOGLE_ROOT_CERTIFICATE =
             "-----BEGIN CERTIFICATE-----\n" +
             "MIIFYDCCA0igAwIBAgIJAOj6GWMU0voYMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNV" +
@@ -204,6 +274,31 @@ class AttestationProtocol {
         return Bytes.concat(new byte[]{PROTOCOL_VERSION}, challengeIndex, getChallenge());
     }
 
+    private static byte[] getFingerprint(final Certificate certificate)
+            throws CertificateEncodingException {
+        return FINGERPRINT_HASH_FUNCTION.hashBytes(certificate.getEncoded()).asBytes();
+    }
+
+    private static class Verified {
+        final String device;
+        final String verifiedBootKey;
+        final int osVersion;
+        final int osPatchLevel;
+        final int appVersion;
+        final boolean isStock;
+
+        Verified(final String device, final String verifiedBootKey, final int osVersion,
+                final int osPatchLevel, final int appVersion, final boolean isStock) {
+            this.device = device;
+            this.verifiedBootKey = verifiedBootKey;
+            this.osVersion = osVersion;
+            this.osPatchLevel = osPatchLevel;
+            this.appVersion = appVersion;
+            this.isStock = isStock;
+        }
+    }
+
+
     private static X509Certificate generateCertificate(final InputStream in)
             throws CertificateException {
         return (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(in);
@@ -220,6 +315,173 @@ class AttestationProtocol {
             this.teeEnforced = teeEnforced;
             this.osEnforced = osEnforced;
         }
+    }
+
+    private static Verified verifyStateless(final Certificate[] certificates,
+            final byte[] challenge, final Certificate root) throws GeneralSecurityException {
+
+        verifyCertificateSignatures(certificates);
+
+        // check that the root certificate is the Google key attestation root
+        if (!Arrays.equals(root.getEncoded(), certificates[certificates.length - 1].getEncoded())) {
+            throw new GeneralSecurityException("root certificate is not the Google key attestation root");
+        }
+
+        final Attestation attestation = new Attestation((X509Certificate) certificates[0]);
+
+        // prevent replay attacks
+        //if (!Arrays.equals(attestation.getAttestationChallenge(), challenge)) {
+            //throw new GeneralSecurityException("challenge mismatch");
+        //}
+
+        // enforce communicating with the attestation app via OS level security
+        final AuthorizationList softwareEnforced = attestation.getSoftwareEnforced();
+        final AttestationApplicationId attestationApplicationId = softwareEnforced.getAttestationApplicationId();
+        final List<AttestationPackageInfo> infos = attestationApplicationId.getAttestationPackageInfos();
+        if (infos.size() != 1) {
+            throw new GeneralSecurityException("wrong number of attestation packages");
+        }
+        final AttestationPackageInfo info = infos.get(0);
+        if (!ATTESTATION_APP_PACKAGE_NAME.equals(info.getPackageName())) {
+            throw new GeneralSecurityException("wrong attestation app package name");
+        }
+        final int appVersion = info.getVersion();
+        if (appVersion < ATTESTATION_APP_MINIMUM_VERSION) {
+            throw new GeneralSecurityException("attestation app is too old");
+        }
+        final List<byte[]> signatureDigests = attestationApplicationId.getSignatureDigests();
+        if (signatureDigests.size() != 1) {
+            throw new GeneralSecurityException("wrong number of attestation app signature digests");
+        }
+        final String signatureDigest = BaseEncoding.base16().encode(signatureDigests.get(0));
+        if (!ATTESTATION_APP_SIGNATURE_DIGEST_RELEASE.equals(signatureDigest)) {
+            if (!BuildConfig.DEBUG || !ATTESTATION_APP_SIGNATURE_DIGEST_DEBUG.equals(signatureDigest)) {
+                throw new GeneralSecurityException("wrong attestation app signature digest");
+            }
+        }
+
+        final AuthorizationList teeEnforced = attestation.getTeeEnforced();
+
+        // verified boot security checks
+        final int osVersion = teeEnforced.getOsVersion();
+        if (osVersion < OS_VERSION_MINIMUM) {
+            throw new GeneralSecurityException("OS version too old");
+        }
+        final int osPatchLevel = teeEnforced.getOsPatchLevel();
+        if (osPatchLevel < OS_PATCH_LEVEL_MINIMUM) {
+            throw new GeneralSecurityException("OS patch level too old");
+        }
+        final RootOfTrust rootOfTrust = teeEnforced.getRootOfTrust();
+        if (rootOfTrust == null) {
+            throw new GeneralSecurityException("missing root of trust");
+        }
+        if (!rootOfTrust.isDeviceLocked()) {
+            throw new GeneralSecurityException("device is not locked");
+        }
+
+        final int verifiedBootState = rootOfTrust.getVerifiedBootState();
+        final String verifiedBootKey = BaseEncoding.base16().encode(rootOfTrust.getVerifiedBootKey());
+        final DeviceInfo device;
+        final boolean stock;
+        if (verifiedBootState == RootOfTrust.KM_VERIFIED_BOOT_SELF_SIGNED) {
+            device = fingerprintsCopperheadOS.get(verifiedBootKey);
+            stock = false;
+        } else if (verifiedBootState == RootOfTrust.KM_VERIFIED_BOOT_VERIFIED) {
+            device = fingerprintsStock.get(verifiedBootKey);
+            stock = true;
+        } else {
+            throw new GeneralSecurityException("verified boot state is not verified or self signed");
+        }
+
+        if (device == null) {
+            throw new GeneralSecurityException("invalid key fingerprint");
+        }
+
+        // key sanity checks
+        if (teeEnforced.getOrigin() != AuthorizationList.KM_ORIGIN_GENERATED) {
+            throw new GeneralSecurityException("not a generated key");
+        }
+        if (teeEnforced.isAllApplications()) {
+            throw new GeneralSecurityException("expected key only usable by attestation app");
+        }
+        if (device.rollbackResistant && !teeEnforced.isRollbackResistant()) {
+            throw new GeneralSecurityException("expected rollback resistant key");
+        }
+
+        // version sanity checks
+        if (attestation.getAttestationVersion() < device.attestationVersion) {
+            throw new GeneralSecurityException("attestation version below " + device.attestationVersion);
+        }
+        if (attestation.getAttestationSecurityLevel() != Attestation.KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT) {
+            throw new GeneralSecurityException("attestation security level is software");
+        }
+        if (attestation.getKeymasterVersion() < device.keymasterVersion) {
+            throw new GeneralSecurityException("keymaster version below " + device.keymasterVersion);
+        }
+        if (attestation.getKeymasterSecurityLevel() != Attestation.KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT) {
+            throw new GeneralSecurityException("keymaster security level is software");
+        }
+
+        return new Verified(device.name, verifiedBootKey, osVersion, osPatchLevel, appVersion, stock);
+    }
+
+    private static void verifyCertificateSignatures(Certificate[] certChain)
+            throws GeneralSecurityException {
+
+        for (final Certificate cert : certChain) {
+            //Log.d(TAG, BaseEncoding.base64().encode(cert.getEncoded()));
+        }
+
+        for (int i = 1; i < certChain.length; ++i) {
+            final PublicKey pubKey = certChain[i].getPublicKey();
+            try {
+                ((X509Certificate) certChain[i - 1]).checkValidity();
+                certChain[i - 1].verify(pubKey);
+            } catch (InvalidKeyException | CertificateException | NoSuchAlgorithmException
+                    | NoSuchProviderException | SignatureException e) {
+                throw new GeneralSecurityException("Failed to verify certificate "
+                        + certChain[i - 1] + " with public key " + certChain[i].getPublicKey(), e);
+            }
+            if (i == certChain.length - 1) {
+                // Last cert is self-signed.
+                try {
+                    ((X509Certificate) certChain[i]).checkValidity();
+                    certChain[i].verify(pubKey);
+                } catch (CertificateException e) {
+                    throw new GeneralSecurityException(
+                            "Root cert " + certChain[i] + " is not correctly self-signed", e);
+                }
+            }
+        }
+    }
+
+    private static VerificationResult verify(final byte[] fingerprint,
+            final byte[] challenge, final ByteBuffer signedMessage, final byte[] signature,
+            final Certificate[] attestationCertificates, final boolean userProfileSecure,
+            final boolean accessibility, final boolean deviceAdmin,
+            final boolean deviceAdminNonSystem, final boolean adbEnabled,
+            final boolean addUsersWhenLocked, final boolean enrolledFingerprints,
+            final boolean denyNewUsb) throws GeneralSecurityException, IOException {
+
+        final String fingerprintHex = BaseEncoding.base16().encode(fingerprint);
+        final byte[] currentFingerprint = getFingerprint(attestationCertificates[0]);
+        final boolean hasPersistentKey = !Arrays.equals(currentFingerprint, fingerprint);
+
+        //final SharedPreferences preferences =
+                //context.getSharedPreferences(PREFERENCES_DEVICE_PREFIX + fingerprintHex,
+                        //Context.MODE_PRIVATE);
+        //if (hasPersistentKey && !preferences.contains(KEY_PINNED_CERTIFICATE_LENGTH)) {
+            //throw new GeneralSecurityException(
+                    //"Pairing data for this Auditee is missing. Cannot perform paired attestation.\n" +
+                    //"\nEither the initial pairing was incomplete or the device is compromised.\n" +
+                    //"\nIf the initial pairing was simply not completed, clear the pairing data on either the Auditee or the Auditor via the menu and try again.\n");
+        //}
+
+        final Verified verified = verifyStateless(attestationCertificates, challenge,
+                generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes())));
+
+        // TODO: lots of unported code
+        return null;
     }
 
     static VerificationResult verifySerialized(final byte[] attestationResult,
@@ -286,9 +548,9 @@ class AttestationProtocol {
         deserializer.limit(deserializer.capacity() - signature.length);
 
         //final byte[] challenge = Arrays.copyOfRange(challengeMessage, 1 + CHALLENGE_LENGTH, 1 + CHALLENGE_LENGTH * 2);
-        //return verify(context, fingerprint, challenge, deserializer.asReadOnlyBuffer(), signature,
-                //certificates, userProfileSecure, accessibility, deviceAdmin, deviceAdminNonSystem,
-                //adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb);
-        return null;
+        final byte[] challenge = null;
+        return verify(fingerprint, challenge, deserializer.asReadOnlyBuffer(), signature,
+                certificates, userProfileSecure, accessibility, deviceAdmin, deviceAdminNonSystem,
+                adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb);
     }
 }
