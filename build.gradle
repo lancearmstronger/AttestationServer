@@ -14,6 +14,7 @@ repositories {
 }
 
 dependencies {
+    compile 'com.google.guava:guava:24.1-jre'
     compile "com.almworks.sqlite4java:sqlite4java:1.0.392"
     compile "com.almworks.sqlite4java:libsqlite4java-linux-amd64:1.0.392"
 }

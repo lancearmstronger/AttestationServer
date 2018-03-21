@@ -1,7 +1,11 @@
 package attestationserver;
 
+import com.google.common.primitives.Bytes;
+
+import java.security.SecureRandom;
+
 class AttestationProtocol {
-    private static final int CHALLENGE_LENGTH = 32;
+    static final int CHALLENGE_LENGTH = 32;
 
     // Challenge message:
     //
@@ -22,8 +26,6 @@ class AttestationProtocol {
     //
     // Attestation message:
     //
-    // PROTOCOL_VERSION == 1 implies certificateCount == 2
-    //
     // The Auditor will eventually start trying to be backwards compatible with older Auditee app
     // versions but not the other way around.
     //
@@ -33,7 +35,7 @@ class AttestationProtocol {
     // signed message {
     // byte version = min(maxVersion, PROTOCOL_VERSION)
     // short compressedChainLength
-    // byte[] compressedChain { [short encodedCertificateLength, byte[] encodedCertificate] x certificateCount }
+    // byte[] compressedChain { [short encodedCertificateLength, byte[] encodedCertificate] }
     // byte[] fingerprint (length: FINGERPRINT_LENGTH)
     // byte osEnforcedFlags
     // }
@@ -74,9 +76,20 @@ class AttestationProtocol {
     // the outer signature and the rest of the chain for pinning the expected chain. It enforces
     // downgrade protection for the OS version/patch (bootloader/TEE enforced) and app version (OS
     // enforced) by keeping them updated.
-    private static final byte PROTOCOL_VERSION = 0;
+    private static final byte PROTOCOL_VERSION = 1;
     // can become longer in the future, but this is the minimum length
     private static final byte CHALLENGE_MESSAGE_LENGTH = 1 + CHALLENGE_LENGTH * 2;
     private static final int MAX_ENCODED_CHAIN_LENGTH = 3000;
     static final int MAX_MESSAGE_SIZE = 2953;
+
+    static byte[] getChallenge() {
+        final SecureRandom random = new SecureRandom();
+        final byte[] challenge = new byte[CHALLENGE_LENGTH];
+        random.nextBytes(challenge);
+        return challenge;
+    }
+
+    static byte[] getChallengeMessage(final byte[] challengeIndex) {
+        return Bytes.concat(new byte[]{PROTOCOL_VERSION}, challengeIndex, getChallenge());
+    }
 }

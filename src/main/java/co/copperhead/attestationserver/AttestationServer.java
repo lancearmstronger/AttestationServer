@@ -8,8 +8,12 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,13 +21,26 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 
 public class AttestationServer {
+    private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
+
+    private static byte[] challengeIndex;
 
     public static void main(final String[] args) throws Exception {
         final SQLiteConnection db = new SQLiteConnection(SAMPLES_DATABASE);
         db.open();
         db.exec("CREATE TABLE IF NOT EXISTS SAMPLES (SAMPLE TEXT NOT NULL)");
         db.dispose();
+
+        try {
+            challengeIndex = Files.readAllBytes(CHALLENGE_INDEX_PATH);
+            if (challengeIndex.length != AttestationProtocol.CHALLENGE_LENGTH) {
+                throw new RuntimeException("challenge index is not " + AttestationProtocol.CHALLENGE_LENGTH + " bytes");
+            }
+        } catch (final IOException e) {
+            challengeIndex = AttestationProtocol.getChallenge();
+            Files.write(CHALLENGE_INDEX_PATH, challengeIndex);
+        }
 
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
         server.createContext("/submit", new SubmitHandler());
@@ -83,7 +100,16 @@ public class AttestationServer {
     private static class VerifyHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            final String method = exchange.getRequestMethod();
+
+            if (method.equalsIgnoreCase("GET")) {
+                // TODO: keep temporary state for active challenges to verify single use
+                final byte[] challengeMessage = AttestationProtocol.getChallengeMessage(challengeIndex);
+                exchange.sendResponseHeaders(200, challengeMessage.length);
+                final OutputStream output = exchange.getResponseBody();
+                output.write(challengeMessage);
+                output.close();
+            } else if (method.equalsIgnoreCase("POST")) {
                 final InputStream input = exchange.getRequestBody();
 
                 final ByteArrayOutputStream attestation = new ByteArrayOutputStream();
