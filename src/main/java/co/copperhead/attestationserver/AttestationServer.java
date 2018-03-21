@@ -8,17 +8,20 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.BufferUnderflowException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.net.InetSocketAddress;
+import java.security.GeneralSecurityException;
 import java.util.concurrent.Executors;
+import java.util.zip.DataFormatException;
 
 public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
@@ -95,6 +98,7 @@ public class AttestationServer {
                     st.dispose();
                     conn.dispose();
                 } catch (SQLiteException e) {
+                    e.printStackTrace();
                     throw new IOException(e);
                 }
 
@@ -143,18 +147,30 @@ public class AttestationServer {
                     }
                 }
 
-                final byte[] bytes = attestation.toByteArray();
+                final byte[] attestationResult = attestation.toByteArray();
+                final byte[] challengeMessage = null;
 
                 final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
                 try {
                     conn.open();
                     conn.dispose();
                 } catch (final SQLiteException e) {
+                    e.printStackTrace();
                     throw new IOException(e);
                 }
 
-                final String response = "Not implemented yet\n";
-                exchange.sendResponseHeaders(501, response.length());
+                try {
+                    AttestationProtocol.verifySerialized(attestationResult, challengeMessage);
+                } catch (final DataFormatException | GeneralSecurityException | IOException e) {
+                    e.printStackTrace();
+                    throw new IOException(e);
+                } catch (final BufferUnderflowException e) {
+                    e.printStackTrace();
+                    throw new IOException(e);
+                }
+
+                final String response = "Success\n";
+                exchange.sendResponseHeaders(200, response.length());
                 final OutputStream output = exchange.getResponseBody();
                 output.write(response.getBytes());
                 output.close();

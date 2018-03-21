@@ -1,11 +1,30 @@
 package attestationserver;
 
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
+import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Bytes;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
 
 class AttestationProtocol {
     static final int CHALLENGE_LENGTH = 32;
+    private static final HashFunction FINGERPRINT_HASH_FUNCTION = Hashing.sha256();
+    private static final int FINGERPRINT_LENGTH = FINGERPRINT_HASH_FUNCTION.bits() / 8;
 
     // Challenge message:
     //
@@ -82,6 +101,98 @@ class AttestationProtocol {
     private static final int MAX_ENCODED_CHAIN_LENGTH = 3000;
     static final int MAX_MESSAGE_SIZE = 2953;
 
+    private static final int OS_ENFORCED_FLAGS_NONE = 0;
+    private static final int OS_ENFORCED_FLAGS_USER_PROFILE_SECURE = 1;
+    private static final int OS_ENFORCED_FLAGS_ACCESSIBILITY = 1 << 1;
+    private static final int OS_ENFORCED_FLAGS_DEVICE_ADMIN = 1 << 2;
+    private static final int OS_ENFORCED_FLAGS_ADB_ENABLED = 1 << 3;
+    private static final int OS_ENFORCED_FLAGS_ADD_USERS_WHEN_LOCKED = 1 << 4;
+    private static final int OS_ENFORCED_FLAGS_ENROLLED_FINGERPRINTS = 1 << 5;
+    private static final int OS_ENFORCED_FLAGS_DENY_NEW_USB = 1 << 6;
+    private static final int OS_ENFORCED_FLAGS_DEVICE_ADMIN_NON_SYSTEM = 1 << 7;
+    private static final int OS_ENFORCED_FLAGS_ALL =
+            OS_ENFORCED_FLAGS_USER_PROFILE_SECURE |
+            OS_ENFORCED_FLAGS_ACCESSIBILITY |
+            OS_ENFORCED_FLAGS_DEVICE_ADMIN |
+            OS_ENFORCED_FLAGS_ADB_ENABLED |
+            OS_ENFORCED_FLAGS_ADD_USERS_WHEN_LOCKED |
+            OS_ENFORCED_FLAGS_ENROLLED_FINGERPRINTS |
+            OS_ENFORCED_FLAGS_DENY_NEW_USB |
+            OS_ENFORCED_FLAGS_DEVICE_ADMIN_NON_SYSTEM;
+
+    private static final String GOOGLE_ROOT_CERTIFICATE =
+            "-----BEGIN CERTIFICATE-----\n" +
+            "MIIFYDCCA0igAwIBAgIJAOj6GWMU0voYMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNV" +
+            "BAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMTYwNTI2MTYyODUyWhcNMjYwNTI0MTYy" +
+            "ODUyWjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0B" +
+            "AQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdS" +
+            "Sxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5jlRfdnJLmN0pTy/4lj4/7" +
+            "tv0Sk3iiKkypnEUtR6WfMgH0QZfKHM1+di+y9TFRtv6y//0rb+T+W8a9nsNL/ggj" +
+            "nar86461qO0rOs2cXjp3kOG1FEJ5MVmFmBGtnrKpa73XpXyTqRxB/M0n1n/W9nGq" +
+            "C4FSYa04T6N5RIZGBN2z2MT5IKGbFlbC8UrW0DxW7AYImQQcHtGl/m00QLVWutHQ" +
+            "oVJYnFPlXTcHYvASLu+RhhsbDmxMgJJ0mcDpvsC4PjvB+TxywElgS70vE0XmLD+O" +
+            "JtvsBslHZvPBKCOdT0MS+tgSOIfga+z1Z1g7+DVagf7quvmag8jfPioyKvxnK/Eg" +
+            "sTUVi2ghzq8wm27ud/mIM7AY2qEORR8Go3TVB4HzWQgpZrt3i5MIlCaY504LzSRi" +
+            "igHCzAPlHws+W0rB5N+er5/2pJKnfBSDiCiFAVtCLOZ7gLiMm0jhO2B6tUXHI/+M" +
+            "RPjy02i59lINMRRev56GKtcd9qO/0kUJWdZTdA2XoS82ixPvZtXQpUpuL12ab+9E" +
+            "aDK8Z4RHJYYfCT3Q5vNAXaiWQ+8PTWm2QgBR/bkwSWc+NpUFgNPN9PvQi8WEg5Um" +
+            "AGMCAwEAAaOBpjCBozAdBgNVHQ4EFgQUNmHhAHyIBQlRi0RsR/8aTMnqTxIwHwYD" +
+            "VR0jBBgwFoAUNmHhAHyIBQlRi0RsR/8aTMnqTxIwDwYDVR0TAQH/BAUwAwEB/zAO" +
+            "BgNVHQ8BAf8EBAMCAYYwQAYDVR0fBDkwNzA1oDOgMYYvaHR0cHM6Ly9hbmRyb2lk" +
+            "Lmdvb2dsZWFwaXMuY29tL2F0dGVzdGF0aW9uL2NybC8wDQYJKoZIhvcNAQELBQAD" +
+            "ggIBACDIw41L3KlXG0aMiS//cqrG+EShHUGo8HNsw30W1kJtjn6UBwRM6jnmiwfB" +
+            "Pb8VA91chb2vssAtX2zbTvqBJ9+LBPGCdw/E53Rbf86qhxKaiAHOjpvAy5Y3m00m" +
+            "qC0w/Zwvju1twb4vhLaJ5NkUJYsUS7rmJKHHBnETLi8GFqiEsqTWpG/6ibYCv7rY" +
+            "DBJDcR9W62BW9jfIoBQcxUCUJouMPH25lLNcDc1ssqvC2v7iUgI9LeoM1sNovqPm" +
+            "QUiG9rHli1vXxzCyaMTjwftkJLkf6724DFhuKug2jITV0QkXvaJWF4nUaHOTNA4u" +
+            "JU9WDvZLI1j83A+/xnAJUucIv/zGJ1AMH2boHqF8CY16LpsYgBt6tKxxWH00XcyD" +
+            "CdW2KlBCeqbQPcsFmWyWugxdcekhYsAWyoSf818NUsZdBWBaR/OukXrNLfkQ79Iy" +
+            "ZohZbvabO/X+MVT3rriAoKc8oE2Uws6DF+60PV7/WIPjNvXySdqspImSN78mflxD" +
+            "qwLqRBYkA3I75qppLGG9rp7UCdRjxMl8ZDBld+7yvHVgt1cVzJx9xnyGCC23Uaic" +
+            "MDSXYrB4I4WHXPGjxhZuCuPBLTdOLU8YRvMYdEvYebWHMpvwGCF6bAx3JBpIeOQ1" +
+            "wDB5y0USicV3YgYGmi+NZfhA4URSh77Yd6uuJOJENRaNVTzk\n" +
+            "-----END CERTIFICATE-----";
+
+    private static final byte[] DEFLATE_DICTIONARY = BaseEncoding.base64().decode(
+            "MIICZjCCAg2gAwIBAgIBATAKBggqhkjOPQQDAjAbMRkwFwYDVQQFExBkNzc1MjM0ODY2ZjM3ZjUz" +
+            "MCAXDTE4MDIwNTAxNDM1OVoYDzIxMDYwMjA3MDYyODE1WjAfMR0wGwYDVQQDDBRBbmRyb2lkIEtl" +
+            "eXN0b3JlIEtleTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABODxAGPDQUKeGN90LJ30XS5voSvK" +
+            "VvEj2a0UP7R6fOy+pob45fFAH1qvqqLv9J6Ajb7PZX7HTpanJ7uaIQ5wpRmjggE6MIIBNjAOBgNV" +
+            "HQ8BAf8EBAMCB4AwggEiBgorBgEEAdZ5AgERBIIBEjCCAQ4CAQIKAQECAQMKAQEEIHpMSeMQFv3g" +
+            "4qCffZTszv/WNaIc3ePgFDtbvAM/uwLvBAAwZr+DEAgCBgFhY6JZLr+FPQgCBgFhY6Meu7+FRUoE" +
+            "SDBGMSAwHgQZY28uY29wcGVyaGVhZC5hdHRlc3RhdGlvbgIBATEiBCAW9DOe5NbEQZ3vCP9JSfcq" +
+            "G5CR7Ymx/pRH8xqOO8y8bzB0oQgxBgIBAgIBA6IDAgEDowQCAgEApQUxAwIBBKoDAgEBv4N3AgUA" +
+            "v4U+AwIBAL+FPwIFAL+FQCowKAQgFxYW6u8mAJ/EbcbYnz0kIX6SbIGmfOZdLjqdwnBAx6sBAf8K" +
+            "AQC/hUEFAgMBOOS/hUIFAgMDFEkwCgYIKoZIzj0EAwIDRwAwRAIgRQm5K1AAPmPc5lcJm3sICuav" +
+            "Zfaf3RBuEZHHpmc17YoCIAroE4eLaP5edIVWDGYCR5dTgEY3TOkACdQsQvfZCOKaMIICKTCCAa+g" +
+            "AwIBAgIJaDkSRnQoRzlhMAoGCCqGSM49BAMCMBsxGTAXBgNVBAUTEDg3ZjQ1MTQ0NzViYTBhMmIw" +
+            "HhcNMTYwNTI2MTcwNzMzWhcNMjYwNTI0MTcwNzMzWjAbMRkwFwYDVQQFExBkNzc1MjM0ODY2ZjM3" +
+            "ZjUzMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEqrXOysRNrb+GjpMdrmsXrqq+jyLaahkcgCo6" +
+            "rAROyYWOKaERvaFowtGsxkSfMSbqopj3qp//JBOW5iRrHRcp4KOB2zCB2DAdBgNVHQ4EFgQUL78c" +
+            "0llO0rDTlgtwnhdE3BoQUEswHwYDVR0jBBgwFoAUMEQj5aL2BuFQq3dfFha7kcxjxlkwDAYDVR0T" +
+            "AQH/BAIwADAOBgNVHQ8BAf8EBAMCB4AwJAYDVR0eBB0wG6AZMBeCFWludmFsaWQ7ZW1haWw6aW52" +
+            "YWxpZDBSBgNVHR8ESzBJMEegRaBDhkFodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0" +
+            "ZXN0YXRpb24vY3JsLzY4MzkxMjQ2NzQyODQ3Mzk2MTAKBggqhkjOPQQDAgNoADBlAjA9rA4BW4Nt" +
+            "HoD3nXysHziKlLoAhCup8V4dNmWu6htIt43I3ANmVm7CzetNqgEjNPACMQCBuDKKwLOHBA9a/dHb" +
+            "9y8ApGZ+AU6StdxH/rHPYRFq84/5WOmUV7vPeFuRoMPe080wggPDMIIBq6ADAgECAgoDiCZnYGWJ" +
+            "loV1MA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMTYwNTI2" +
+            "MTcwMTUxWhcNMjYwNTI0MTcwMTUxWjAbMRkwFwYDVQQFExA4N2Y0NTE0NDc1YmEwYTJiMHYwEAYH" +
+            "KoZIzj0CAQYFK4EEACIDYgAEZDtWaB0n+sSCz2wgTevO8ClcNQwBqowyfz7V9Emu9ClmQl85PYR2" +
+            "O12tVrENBFnGLGpPkyVWqJKTw9FOovHf7w48uiJyoyI54bK0faxVC6u8XKdV4qpIYorWPHb/Z9xy" +
+            "o4G2MIGzMB0GA1UdDgQWBBQwRCPlovYG4VCrd18WFruRzGPGWTAfBgNVHSMEGDAWgBQ2YeEAfIgF" +
+            "CVGLRGxH/xpMyepPEjAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjBQBgNVHR8ESTBH" +
+            "MEWgQ6BBhj9odHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsL0U4" +
+            "RkExOTYzMTREMkZBMTgwDQYJKoZIhvcNAQELBQADggIBAEA5ios2vJOZs6WeuOci8OhfHNos6AJe" +
+            "7b2XsqlsUdpxUvGBi4ZGIgRCrNkGpRhK30+DH4/Yq+ge3P32wRmvbFN7QPDoJMdMCbFZdQV2uW8Q" +
+            "ybYbJJ+8lF8w0K5fWghL8zk99ERjZhkfIur+yfWwmvcWNsox1QwGjkBxqZwPcfzCX07/qp+Ff7nu" +
+            "JfOgrrIzMlEb8yWSbnz+wWTSmNrJQFyGZQkvQVDoiEpiDLxEoTZQPJco4Tv5kxIxRSQB3PKfY8W/" +
+            "tO9C0OTSB7aaRWs2t89KCUzME2+tIMc8GZOS1fPCx5VqAhFPlYj3U6tQ5g8WCiy2x8fjaGznAm0A" +
+            "UY/AOD/WY1rxTIf2TVsytGrdKt7PVcbQm7tIY3+41fl2RzC98CZp22Yzs+n6XZUdFhFHrTSMBwzb" +
+            "7tuXx6Cp8z8Du/IMtmo8jEPCQtePZ4332clklVoZ8H10fIU6oGoEzpJ3JXoxIivcAeijq74FYhf3" +
+            "6ryfWqDkjolZ4R74rnxJtENWg1CCwo/3+I+u5cxTmubbLA/EgJUbKyXUaAA/4Undfqg/S1cVZCVi" +
+            "hZ1KWhJUc1lCqPZ6//r2wycaxN4nDVXsjSBH55k0R/F769kPgo/zwrG6I8J73iun4Cqzn9jC4Kjq" +
+            "tD4caLk5k0GxBdgi58KVIGN746mNBvscmCKEl3Ojb8gH");
+
     static byte[] getChallenge() {
         final SecureRandom random = new SecureRandom();
         final byte[] challenge = new byte[CHALLENGE_LENGTH];
@@ -91,5 +202,93 @@ class AttestationProtocol {
 
     static byte[] getChallengeMessage(final byte[] challengeIndex) {
         return Bytes.concat(new byte[]{PROTOCOL_VERSION}, challengeIndex, getChallenge());
+    }
+
+    private static X509Certificate generateCertificate(final InputStream in)
+            throws CertificateException {
+        return (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(in);
+    }
+
+    static class VerificationResult {
+        final boolean strong;
+        final String teeEnforced;
+        final String osEnforced;
+
+        VerificationResult(final boolean strong, final String teeEnforced,
+                final String osEnforced) {
+            this.strong = strong;
+            this.teeEnforced = teeEnforced;
+            this.osEnforced = osEnforced;
+        }
+    }
+
+    static VerificationResult verifySerialized(final byte[] attestationResult,
+            final byte[] challengeMessage) throws DataFormatException, GeneralSecurityException, IOException {
+        final ByteBuffer deserializer = ByteBuffer.wrap(attestationResult);
+        final byte version = deserializer.get();
+        if (version > PROTOCOL_VERSION) {
+            throw new GeneralSecurityException("unsupported protocol version: " + version);
+        }
+
+        final short compressedChainLength = deserializer.getShort();
+        final byte[] compressedChain = new byte[compressedChainLength];
+        deserializer.get(compressedChain);
+
+        final byte[] chain = new byte[MAX_ENCODED_CHAIN_LENGTH];
+        final Inflater inflater = new Inflater(true);
+        inflater.setInput(compressedChain);
+        inflater.setDictionary(DEFLATE_DICTIONARY);
+        final int chainLength = inflater.inflate(chain);
+        if (!inflater.finished()) {
+            throw new GeneralSecurityException("certificate chain is too large");
+        }
+        inflater.end();
+        //Log.d(TAG, "encoded length: " + chainLength + ", compressed length: " + compressedChain.length);
+
+        final ByteBuffer chainDeserializer = ByteBuffer.wrap(chain, 0, chainLength);
+        final List<Certificate> certs = new ArrayList<>();
+        while (chainDeserializer.hasRemaining()) {
+            final short encodedLength = chainDeserializer.getShort();
+            final byte[] encoded = new byte[encodedLength];
+            chainDeserializer.get(encoded);
+            certs.add(generateCertificate(new ByteArrayInputStream(encoded)));
+        }
+        final Certificate[] certificates = certs.toArray(new Certificate[certs.size() + 1]);
+
+        final byte[] fingerprint = new byte[FINGERPRINT_LENGTH];
+        deserializer.get(fingerprint);
+
+        final byte osEnforcedFlags = deserializer.get();
+        if ((osEnforcedFlags & ~OS_ENFORCED_FLAGS_ALL) != 0) {
+            //Log.w(TAG, "unknown OS enforced flag set (flags: " + Integer.toBinaryString(osEnforcedFlags) + ")");
+        }
+        final boolean userProfileSecure = (osEnforcedFlags & OS_ENFORCED_FLAGS_USER_PROFILE_SECURE) != 0;
+        final boolean accessibility = (osEnforcedFlags & OS_ENFORCED_FLAGS_ACCESSIBILITY) != 0;
+        final boolean deviceAdmin = (osEnforcedFlags & OS_ENFORCED_FLAGS_DEVICE_ADMIN) != 0;
+        final boolean deviceAdminNonSystem = (osEnforcedFlags & OS_ENFORCED_FLAGS_DEVICE_ADMIN_NON_SYSTEM) != 0;
+        final boolean adbEnabled = (osEnforcedFlags & OS_ENFORCED_FLAGS_ADB_ENABLED) != 0;
+        final boolean addUsersWhenLocked = (osEnforcedFlags & OS_ENFORCED_FLAGS_ADD_USERS_WHEN_LOCKED) != 0;
+        final boolean enrolledFingerprints = (osEnforcedFlags & OS_ENFORCED_FLAGS_ENROLLED_FINGERPRINTS) != 0;
+        final boolean denyNewUsb = (osEnforcedFlags & OS_ENFORCED_FLAGS_DENY_NEW_USB) != 0;
+
+        if (deviceAdminNonSystem && !deviceAdmin) {
+            throw new GeneralSecurityException("invalid device administrator state");
+        }
+
+        final int signatureLength = deserializer.remaining();
+        final byte[] signature = new byte[signatureLength];
+        deserializer.get(signature);
+
+        certificates[certificates.length - 1] =
+                generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes()));
+
+        deserializer.rewind();
+        deserializer.limit(deserializer.capacity() - signature.length);
+
+        //final byte[] challenge = Arrays.copyOfRange(challengeMessage, 1 + CHALLENGE_LENGTH, 1 + CHALLENGE_LENGTH * 2);
+        //return verify(context, fingerprint, challenge, deserializer.asReadOnlyBuffer(), signature,
+                //certificates, userProfileSecure, accessibility, deviceAdmin, deviceAdminNonSystem,
+                //adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb);
+        return null;
     }
 }
