@@ -23,14 +23,30 @@ import java.util.concurrent.Executors;
 public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
+    private static final File ATTESTATION_DATABASE = new File("attestation.db");
 
     private static byte[] challengeIndex;
 
     public static void main(final String[] args) throws Exception {
-        final SQLiteConnection db = new SQLiteConnection(SAMPLES_DATABASE);
-        db.open();
-        db.exec("CREATE TABLE IF NOT EXISTS SAMPLES (SAMPLE TEXT NOT NULL)");
-        db.dispose();
+        final SQLiteConnection samplesConn = new SQLiteConnection(SAMPLES_DATABASE);
+        samplesConn.open();
+        samplesConn.exec("CREATE TABLE IF NOT EXISTS SAMPLES (Sample TEXT NOT NULL)");
+        samplesConn.dispose();
+
+        final SQLiteConnection attestationConn = new SQLiteConnection(ATTESTATION_DATABASE);
+        attestationConn.open();
+        // TODO: pinned certificate chain
+        attestationConn.exec("CREATE TABLE IF NOT EXISTS DEVICES (\n" +
+            "pinned_certificate BLOB NOT NULL,\n" +
+            "pinned_verified_boot_key BLOB NOT NULL,\n" +
+            "pinned_os_stock INTEGER NOT NULL,\n" +
+            "pinned_os_version INTEGER NOT NULL,\n" +
+            "pinned_os_patch_level INTEGER NOT NULL,\n" +
+            "pinned_app_version INTEGER NOT NULL,\n" +
+            "verified_time_first INTEGER NOT NULL,\n" +
+            "verified_time_last INTEGER NOT NULL\n" +
+            ")");
+        attestationConn.dispose();
 
         try {
             challengeIndex = Files.readAllBytes(CHALLENGE_INDEX_PATH);
@@ -56,7 +72,7 @@ public class AttestationServer {
                 final InputStream input = exchange.getRequestBody();
 
                 final ByteArrayOutputStream sample = new ByteArrayOutputStream();
-                byte[] buffer = new byte[4096];
+                final byte[] buffer = new byte[4096];
                 for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
                     sample.write(buffer, 0, read);
 
@@ -71,13 +87,13 @@ public class AttestationServer {
                 }
 
                 try {
-                    final SQLiteConnection db = new SQLiteConnection(SAMPLES_DATABASE);
-                    db.open();
-                    SQLiteStatement st = db.prepare("INSERT INTO samples VALUES (?)");
+                    final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
+                    conn.open();
+                    SQLiteStatement st = conn.prepare("INSERT INTO samples VALUES (?)");
                     st.bind(1, sample.toByteArray());
                     st.step();
                     st.dispose();
-                    db.dispose();
+                    conn.dispose();
                 } catch (SQLiteException e) {
                     throw new IOException(e);
                 }
@@ -113,7 +129,7 @@ public class AttestationServer {
                 final InputStream input = exchange.getRequestBody();
 
                 final ByteArrayOutputStream attestation = new ByteArrayOutputStream();
-                byte[] buffer = new byte[4096];
+                final byte[] buffer = new byte[4096];
                 for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
                     attestation.write(buffer, 0, read);
 
@@ -128,6 +144,14 @@ public class AttestationServer {
                 }
 
                 final byte[] bytes = attestation.toByteArray();
+
+                final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
+                try {
+                    conn.open();
+                    conn.dispose();
+                } catch (final SQLiteException e) {
+                    throw new IOException(e);
+                }
 
                 final String response = "Not implemented yet\n";
                 exchange.sendResponseHeaders(501, response.length());
