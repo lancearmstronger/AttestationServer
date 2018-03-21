@@ -4,6 +4,11 @@ import com.almworks.sqlite4java.SQLiteConnection;
 import com.almworks.sqlite4java.SQLiteException;
 import com.almworks.sqlite4java.SQLiteStatement;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
+import com.google.common.primitives.Bytes;
+
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -15,12 +20,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.DataFormatException;
 
 public class AttestationServer {
@@ -28,6 +35,10 @@ public class AttestationServer {
     private static final File SAMPLES_DATABASE = new File("samples.db");
     private static final File ATTESTATION_DATABASE = new File("attestation.db");
 
+    static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
+            .expireAfterWrite(1, TimeUnit.MINUTES)
+            .maximumSize(100000)
+            .build();
     private static byte[] challengeIndex;
 
     public static void main(final String[] args) throws Exception {
@@ -123,8 +134,13 @@ public class AttestationServer {
             final String method = exchange.getRequestMethod();
 
             if (method.equalsIgnoreCase("GET")) {
-                // TODO: keep temporary state for active challenges to verify single use
-                final byte[] challengeMessage = AttestationProtocol.getChallengeMessage(challengeIndex);
+                final byte[] challenge = AttestationProtocol.getChallenge();
+                pendingChallenges.put(ByteBuffer.wrap(challenge), true);
+
+                final byte[] challengeMessage =
+                        Bytes.concat(new byte[]{AttestationProtocol.PROTOCOL_VERSION},
+                                challengeIndex, challenge);
+
                 exchange.sendResponseHeaders(200, challengeMessage.length);
                 final OutputStream output = exchange.getResponseBody();
                 output.write(challengeMessage);
@@ -148,7 +164,6 @@ public class AttestationServer {
                 }
 
                 final byte[] attestationResult = attestation.toByteArray();
-                final byte[] challengeMessage = null;
 
                 final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
                 try {
@@ -160,7 +175,7 @@ public class AttestationServer {
                 }
 
                 try {
-                    AttestationProtocol.verifySerialized(attestationResult, challengeMessage);
+                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges);
                 } catch (final DataFormatException | GeneralSecurityException | IOException e) {
                     e.printStackTrace();
                     throw new IOException(e);

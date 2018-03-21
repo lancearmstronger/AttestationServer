@@ -1,10 +1,11 @@
 package attestationserver;
 
+import com.github.benmanes.caffeine.cache.Cache;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
-import com.google.common.primitives.Bytes;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -108,7 +109,7 @@ class AttestationProtocol {
     // the outer signature and the rest of the chain for pinning the expected chain. It enforces
     // downgrade protection for the OS version/patch (bootloader/TEE enforced) and app version (OS
     // enforced) by keeping them updated.
-    private static final byte PROTOCOL_VERSION = 1;
+    static final byte PROTOCOL_VERSION = 1;
     // can become longer in the future, but this is the minimum length
     private static final byte CHALLENGE_MESSAGE_LENGTH = 1 + CHALLENGE_LENGTH * 2;
     private static final int MAX_ENCODED_CHAIN_LENGTH = 3000;
@@ -270,10 +271,6 @@ class AttestationProtocol {
         return challenge;
     }
 
-    static byte[] getChallengeMessage(final byte[] challengeIndex) {
-        return Bytes.concat(new byte[]{PROTOCOL_VERSION}, challengeIndex, getChallenge());
-    }
-
     private static byte[] getFingerprint(final Certificate certificate)
             throws CertificateEncodingException {
         return FINGERPRINT_HASH_FUNCTION.hashBytes(certificate.getEncoded()).asBytes();
@@ -318,7 +315,7 @@ class AttestationProtocol {
     }
 
     private static Verified verifyStateless(final Certificate[] certificates,
-            final byte[] challenge, final Certificate root) throws GeneralSecurityException {
+            final Cache<ByteBuffer, Boolean> pendingChallenges, final Certificate root) throws GeneralSecurityException {
 
         verifyCertificateSignatures(certificates);
 
@@ -330,9 +327,10 @@ class AttestationProtocol {
         final Attestation attestation = new Attestation((X509Certificate) certificates[0]);
 
         // prevent replay attacks
-        //if (!Arrays.equals(attestation.getAttestationChallenge(), challenge)) {
-            //throw new GeneralSecurityException("challenge mismatch");
-        //}
+        final byte[] challenge = attestation.getAttestationChallenge();
+        if (pendingChallenges.asMap().remove(ByteBuffer.wrap(challenge)) == null) {
+            throw new GeneralSecurityException("challenge not pending");
+        }
 
         // enforce communicating with the attestation app via OS level security
         final AuthorizationList softwareEnforced = attestation.getSoftwareEnforced();
@@ -456,7 +454,7 @@ class AttestationProtocol {
     }
 
     private static VerificationResult verify(final byte[] fingerprint,
-            final byte[] challenge, final ByteBuffer signedMessage, final byte[] signature,
+            final Cache<ByteBuffer, Boolean> pendingChallenges, final ByteBuffer signedMessage, final byte[] signature,
             final Certificate[] attestationCertificates, final boolean userProfileSecure,
             final boolean accessibility, final boolean deviceAdmin,
             final boolean deviceAdminNonSystem, final boolean adbEnabled,
@@ -477,7 +475,7 @@ class AttestationProtocol {
                     //"\nIf the initial pairing was simply not completed, clear the pairing data on either the Auditee or the Auditor via the menu and try again.\n");
         //}
 
-        final Verified verified = verifyStateless(attestationCertificates, challenge,
+        final Verified verified = verifyStateless(attestationCertificates, pendingChallenges,
                 generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes())));
 
         // TODO: lots of unported code
@@ -485,7 +483,7 @@ class AttestationProtocol {
     }
 
     static VerificationResult verifySerialized(final byte[] attestationResult,
-            final byte[] challengeMessage) throws DataFormatException, GeneralSecurityException, IOException {
+            final Cache<ByteBuffer, Boolean> pendingChallenges) throws DataFormatException, GeneralSecurityException, IOException {
         final ByteBuffer deserializer = ByteBuffer.wrap(attestationResult);
         final byte version = deserializer.get();
         if (version > PROTOCOL_VERSION) {
@@ -547,9 +545,7 @@ class AttestationProtocol {
         deserializer.rewind();
         deserializer.limit(deserializer.capacity() - signature.length);
 
-        //final byte[] challenge = Arrays.copyOfRange(challengeMessage, 1 + CHALLENGE_LENGTH, 1 + CHALLENGE_LENGTH * 2);
-        final byte[] challenge = null;
-        return verify(fingerprint, challenge, deserializer.asReadOnlyBuffer(), signature,
+        return verify(fingerprint, pendingChallenges, deserializer.asReadOnlyBuffer(), signature,
                 certificates, userProfileSecure, accessibility, deviceAdmin, deviceAdminNonSystem,
                 adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb);
     }
