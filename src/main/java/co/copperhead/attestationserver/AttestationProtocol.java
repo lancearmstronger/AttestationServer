@@ -488,10 +488,12 @@ class AttestationProtocol {
         try {
             conn.open();
 
+            byte[] persistentCertificateEncoded = null;
             if (hasPersistentKey) {
-                final SQLiteStatement st = conn.prepare("SELECT * from Devices WHERE fingerprint = ?");
+                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate from Devices WHERE fingerprint = ?");
                 st.bind(1, fingerprint);
                 if (st.step()) {
+                    persistentCertificateEncoded = st.columnBlob(0);
                     System.err.println("found device");
                     st.dispose();
                 } else {
@@ -507,7 +509,16 @@ class AttestationProtocol {
                     generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes())));
 
             if (hasPersistentKey) {
-                // TODO: pinning verification
+                // TODO: verify pinned certificate chain
+
+                final Certificate persistentCertificate = generateCertificate(
+                        new ByteArrayInputStream(persistentCertificateEncoded));
+                if (!Arrays.equals(fingerprint, getFingerprint(persistentCertificate))) {
+                    throw new GeneralSecurityException("corrupt Auditor pinning data");
+                }
+                verifySignature(persistentCertificate.getPublicKey(), signedMessage, signature);
+
+                // TODO: other pinning
 
                 final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, verified_time_last = ? WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
