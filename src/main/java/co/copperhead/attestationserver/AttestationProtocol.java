@@ -489,11 +489,19 @@ class AttestationProtocol {
             conn.open();
 
             byte[] persistentCertificateEncoded = null;
+            byte[] pinnedVerifiedBootKey = null;
+            int pinnedOsVersion = Integer.MAX_VALUE;
+            int pinnedOsPatchLevel = Integer.MAX_VALUE;
+            int pinnedAppVersion = Integer.MAX_VALUE;
             if (hasPersistentKey) {
-                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate from Devices WHERE fingerprint = ?");
+                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version from Devices WHERE fingerprint = ?");
                 st.bind(1, fingerprint);
                 if (st.step()) {
                     persistentCertificateEncoded = st.columnBlob(0);
+                    pinnedVerifiedBootKey = st.columnBlob(1);
+                    pinnedOsVersion = st.columnInt(2);
+                    pinnedOsPatchLevel = st.columnInt(3);
+                    pinnedAppVersion = st.columnInt(4);
                     System.err.println("found device");
                     st.dispose();
                 } else {
@@ -507,6 +515,7 @@ class AttestationProtocol {
 
             final Verified verified = verifyStateless(attestationCertificates, pendingChallenges,
                     generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes())));
+            final byte[] verifiedBootKey = BaseEncoding.base16().decode(verified.verifiedBootKey);
 
             if (hasPersistentKey) {
                 // TODO: verify pinned certificate chain
@@ -518,7 +527,18 @@ class AttestationProtocol {
                 }
                 verifySignature(persistentCertificate.getPublicKey(), signedMessage, signature);
 
-                // TODO: other pinning
+                if (!Arrays.equals(verifiedBootKey, pinnedVerifiedBootKey)) {
+                    throw new GeneralSecurityException("pinned verified boot key mismatch");
+                }
+                if (verified.osVersion < pinnedOsVersion) {
+                    throw new GeneralSecurityException("OS version downgrade detected");
+                }
+                if (verified.osPatchLevel < pinnedOsPatchLevel) {
+                    throw new GeneralSecurityException("OS patch level downgrade detected");
+                }
+                if (verified.appVersion < pinnedAppVersion) {
+                    throw new GeneralSecurityException("App version downgraded");
+                }
 
                 final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, verified_time_last = ? WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
@@ -534,7 +554,7 @@ class AttestationProtocol {
                 final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
                 insert.bind(1, fingerprint);
                 insert.bind(2, attestationCertificates[0].getEncoded());
-                insert.bind(3, verified.verifiedBootKey);
+                insert.bind(3, verifiedBootKey);
                 insert.bind(4, verified.osVersion);
                 insert.bind(5, verified.osPatchLevel);
                 insert.bind(6, verified.appVersion);
