@@ -44,6 +44,7 @@ public class AttestationServer {
         final SQLiteConnection samplesConn = new SQLiteConnection(SAMPLES_DATABASE);
         try {
             samplesConn.open();
+            samplesConn.exec("PRAGMA journal_mode=WAL");
             samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (sample TEXT NOT NULL)");
         } finally {
             samplesConn.dispose();
@@ -52,6 +53,7 @@ public class AttestationServer {
         final SQLiteConnection attestationConn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
             attestationConn.open();
+            attestationConn.exec("PRAGMA journal_mode=WAL");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Devices (\n" +
                     "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
@@ -119,7 +121,7 @@ public class AttestationServer {
                 final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                 try {
                     conn.open();
-                    SQLiteStatement st = conn.prepare("INSERT INTO Samples VALUES (?)");
+                    final SQLiteStatement st = conn.prepare("INSERT INTO Samples VALUES (?)");
                     st.bind(1, sample.toByteArray());
                     st.step();
                     st.dispose();
