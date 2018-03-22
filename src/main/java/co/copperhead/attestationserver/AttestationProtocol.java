@@ -1,5 +1,9 @@
 package attestationserver;
 
+import com.almworks.sqlite4java.SQLiteConnection;
+import com.almworks.sqlite4java.SQLiteException;
+import com.almworks.sqlite4java.SQLiteStatement;
+
 import com.github.benmanes.caffeine.cache.Cache;
 
 import com.google.common.collect.ImmutableMap;
@@ -8,6 +12,7 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,6 +41,8 @@ import co.copperhead.attestation.attestation.AuthorizationList;
 import co.copperhead.attestation.attestation.RootOfTrust;
 
 class AttestationProtocol {
+    static final File ATTESTATION_DATABASE = new File("attestation.db");
+
     static final int CHALLENGE_LENGTH = 32;
     private static final HashFunction FINGERPRINT_HASH_FUNCTION = Hashing.sha256();
     private static final int FINGERPRINT_LENGTH = FINGERPRINT_HASH_FUNCTION.bits() / 8;
@@ -464,6 +471,14 @@ class AttestationProtocol {
         final String fingerprintHex = BaseEncoding.base16().encode(fingerprint);
         final byte[] currentFingerprint = getFingerprint(attestationCertificates[0]);
         final boolean hasPersistentKey = !Arrays.equals(currentFingerprint, fingerprint);
+
+        final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
+        try {
+            conn.open();
+            conn.dispose();
+        } catch (final SQLiteException e) {
+            throw new IOException(e);
+        }
 
         //final SharedPreferences preferences =
                 //context.getSharedPreferences(PREFERENCES_DEVICE_PREFIX + fingerprintHex,

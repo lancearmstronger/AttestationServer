@@ -33,7 +33,6 @@ import java.util.zip.DataFormatException;
 public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
-    private static final File ATTESTATION_DATABASE = new File("attestation.db");
 
     static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
@@ -47,7 +46,7 @@ public class AttestationServer {
         samplesConn.exec("CREATE TABLE IF NOT EXISTS SAMPLES (Sample TEXT NOT NULL)");
         samplesConn.dispose();
 
-        final SQLiteConnection attestationConn = new SQLiteConnection(ATTESTATION_DATABASE);
+        final SQLiteConnection attestationConn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         attestationConn.open();
         // TODO: pinned certificate chain
         attestationConn.exec("CREATE TABLE IF NOT EXISTS DEVICES (\n" +
@@ -164,15 +163,6 @@ public class AttestationServer {
                 }
 
                 final byte[] attestationResult = attestation.toByteArray();
-
-                final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
-                try {
-                    conn.open();
-                    conn.dispose();
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    throw new IOException(e);
-                }
 
                 try {
                     AttestationProtocol.verifySerialized(attestationResult, pendingChallenges);
