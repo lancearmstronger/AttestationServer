@@ -507,8 +507,17 @@ class AttestationProtocol {
                     generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes())));
 
             if (hasPersistentKey) {
-                // TODO: lots of unported code
-            } else {
+                // TODO: pinning verification
+
+                final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, verified_time_last = ? WHERE fingerprint = ?");
+                update.bind(1, verified.osVersion);
+                update.bind(2, verified.osPatchLevel);
+                update.bind(3, verified.appVersion);
+                update.bind(4, new Date().getTime());
+                update.bind(5, fingerprint);
+                update.step();
+                update.dispose();
+             } else {
                 verifySignature(attestationCertificates[0].getPublicKey(), signedMessage, signature);
 
                 final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
