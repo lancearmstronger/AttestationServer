@@ -61,6 +61,14 @@ public class AttestationServer {
                 "verified_time_first INTEGER NOT NULL,\n" +
                 "verified_time_last INTEGER NOT NULL\n" +
                 ")");
+        attestationConn.exec(
+                "CREATE TABLE IF NOT EXISTS Attestations (\n" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
+                "fingerprint BLOB NOT NULL,\n" +
+                "strong INTEGER NOT NULL,\n" +
+                "teeEnforced TEXT NOT NULL,\n" +
+                "osEnforced TEXT NOT NULL\n" +
+                ")");
         attestationConn.dispose();
 
         try {
@@ -246,6 +254,22 @@ public class AttestationServer {
                         output.write("verified time last: ".getBytes());
                         output.write(select.columnBlob(9));
                         output.write("\n".getBytes());
+
+                        final SQLiteStatement history = conn.prepare("SELECT strong, teeEnforced, osEnforced FROM Attestations where hex(fingerprint) = ? order by id");
+                        history.bind(1, select.columnString(0));
+                        while (history.step()) {
+                            output.write("\nAttestation result:\n\n".getBytes());
+                            if (history.columnInt(0) != 0) {
+                                output.write("Successfully performed strong paired verification and identity confirmation.\n\n".getBytes());
+                            } else {
+                                output.write("Successfully performed basic initial verification and pairing.\n\n".getBytes());
+                            }
+                            output.write("Verified device information:\n\n".getBytes());
+                            output.write(history.columnBlob(1));
+                            output.write("\nInformation provided by the verified OS:\n\n".getBytes());
+                            output.write(history.columnBlob(2));
+                        }
+                        history.dispose();
                     }
                     select.dispose();
 

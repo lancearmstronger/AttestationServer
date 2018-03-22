@@ -625,8 +625,6 @@ class AttestationProtocol {
                 appendVerifiedInformation(teeEnforced, verified, fingerprintHex);
             }
 
-            conn.dispose();
-
             final StringBuilder osEnforced = new StringBuilder();
             osEnforced.append(String.format("Auditor app version: %s\n",
                     verified.appVersion - ATTESTATION_APP_VERSION_CODE_OFFSET));
@@ -654,7 +652,19 @@ class AttestationProtocol {
             osEnforced.append(String.format("Disallow new USB peripherals when locked: %s\n",
                     toYesNoString(denyNewUsb)));
 
-            return new VerificationResult(hasPersistentKey, teeEnforced.toString(), osEnforced.toString());
+            final String teeEnforcedString = teeEnforced.toString();
+            final String osEnforcedString = osEnforced.toString();
+
+            final SQLiteStatement insert = conn.prepare("INSERT into Attestations VALUES(NULL, ?, ?, ?, ?)");
+            insert.bind(1, fingerprint);
+            insert.bind(2, hasPersistentKey ? 1 : 0);
+            insert.bind(3, teeEnforcedString);
+            insert.bind(4, osEnforcedString);
+            insert.step();
+            insert.dispose();
+            conn.dispose();
+
+            return new VerificationResult(hasPersistentKey, teeEnforcedString, osEnforcedString);
         } catch (final SQLiteException e) {
             throw new IOException(e);
         }
