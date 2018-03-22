@@ -123,11 +123,8 @@ public class AttestationServer {
                 output.write(response.getBytes());
                 output.close();
             } else {
-                final String response = "Invalid request\n";
-                exchange.sendResponseHeaders(400, response.length());
-                final OutputStream output = exchange.getResponseBody();
-                output.write(response.getBytes());
-                output.close();
+                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.sendResponseHeaders(405, -1);
             }
         }
     }
@@ -187,11 +184,8 @@ public class AttestationServer {
                 output.write(response.getBytes());
                 output.close();
             } else {
-                final String response = "Invalid request\n";
-                exchange.sendResponseHeaders(400, response.length());
-                final OutputStream output = exchange.getResponseBody();
-                output.write(response.getBytes());
-                output.close();
+                exchange.getResponseHeaders().set("Allow", "GET, POST");
+                exchange.sendResponseHeaders(405, -1);
             }
         }
     }
