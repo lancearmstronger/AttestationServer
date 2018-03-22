@@ -421,11 +421,6 @@ class AttestationProtocol {
 
     private static void verifyCertificateSignatures(Certificate[] certChain)
             throws GeneralSecurityException {
-
-        for (final Certificate cert : certChain) {
-            //Log.d(TAG, BaseEncoding.base64().encode(cert.getEncoded()));
-        }
-
         for (int i = 1; i < certChain.length; ++i) {
             final PublicKey pubKey = certChain[i].getPublicKey();
             try {
