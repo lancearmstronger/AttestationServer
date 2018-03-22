@@ -42,34 +42,40 @@ public class AttestationServer {
 
     public static void main(final String[] args) throws Exception {
         final SQLiteConnection samplesConn = new SQLiteConnection(SAMPLES_DATABASE);
-        samplesConn.open();
-        samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (sample TEXT NOT NULL)");
-        samplesConn.dispose();
+        try {
+            samplesConn.open();
+            samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (sample TEXT NOT NULL)");
+        } finally {
+            samplesConn.dispose();
+        }
 
         final SQLiteConnection attestationConn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
-        attestationConn.open();
-        attestationConn.exec(
-                "CREATE TABLE IF NOT EXISTS Devices (\n" +
-                "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
-                "pinned_certificate_0 BLOB NOT NULL,\n" +
-                "pinned_certificate_1 BLOB NOT NULL,\n" +
-                "pinned_certificate_2 BLOB NOT NULL,\n" +
-                "pinned_verified_boot_key BLOB NOT NULL,\n" +
-                "pinned_os_version INTEGER NOT NULL,\n" +
-                "pinned_os_patch_level INTEGER NOT NULL,\n" +
-                "pinned_app_version INTEGER NOT NULL,\n" +
-                "verified_time_first INTEGER NOT NULL,\n" +
-                "verified_time_last INTEGER NOT NULL\n" +
-                ")");
-        attestationConn.exec(
-                "CREATE TABLE IF NOT EXISTS Attestations (\n" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
-                "fingerprint BLOB NOT NULL,\n" +
-                "strong INTEGER NOT NULL,\n" +
-                "teeEnforced TEXT NOT NULL,\n" +
-                "osEnforced TEXT NOT NULL\n" +
-                ")");
-        attestationConn.dispose();
+        try {
+            attestationConn.open();
+            attestationConn.exec(
+                    "CREATE TABLE IF NOT EXISTS Devices (\n" +
+                    "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
+                    "pinned_certificate_0 BLOB NOT NULL,\n" +
+                    "pinned_certificate_1 BLOB NOT NULL,\n" +
+                    "pinned_certificate_2 BLOB NOT NULL,\n" +
+                    "pinned_verified_boot_key BLOB NOT NULL,\n" +
+                    "pinned_os_version INTEGER NOT NULL,\n" +
+                    "pinned_os_patch_level INTEGER NOT NULL,\n" +
+                    "pinned_app_version INTEGER NOT NULL,\n" +
+                    "verified_time_first INTEGER NOT NULL,\n" +
+                    "verified_time_last INTEGER NOT NULL\n" +
+                    ")");
+            attestationConn.exec(
+                    "CREATE TABLE IF NOT EXISTS Attestations (\n" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
+                    "fingerprint BLOB NOT NULL,\n" +
+                    "strong INTEGER NOT NULL,\n" +
+                    "teeEnforced TEXT NOT NULL,\n" +
+                    "osEnforced TEXT NOT NULL\n" +
+                    ")");
+        } finally {
+            attestationConn.dispose();
+        }
 
         try {
             challengeIndex = Files.readAllBytes(CHALLENGE_INDEX_PATH);
@@ -110,14 +116,13 @@ public class AttestationServer {
                     }
                 }
 
+                final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                 try {
-                    final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                     conn.open();
                     SQLiteStatement st = conn.prepare("INSERT INTO Samples VALUES (?)");
                     st.bind(1, sample.toByteArray());
                     st.step();
                     st.dispose();
-                    conn.dispose();
                 } catch (final SQLiteException e) {
                     e.printStackTrace();
                     final String response = "Failed to save data.\n";
@@ -126,6 +131,8 @@ public class AttestationServer {
                     output.write(response.getBytes());
                     output.close();
                     return;
+                } finally {
+                    conn.dispose();
                 }
 
                 exchange.sendResponseHeaders(200, -1);
@@ -212,8 +219,8 @@ public class AttestationServer {
                 final OutputStream output = exchange.getResponseBody();
                 final String response = "Devices\n";
 
+                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                 try {
-                    final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                     conn.open();
 
                     final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), hex(pinned_certificate_0), hex(pinned_certificate_1), hex(pinned_certificate_2), hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices");
@@ -272,12 +279,12 @@ public class AttestationServer {
                         history.dispose();
                     }
                     select.dispose();
-
-                    conn.dispose();
                 } catch (final SQLiteException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(500, -1);
                     return;
+                } finally {
+                    conn.dispose();
                 }
 
                 output.close();

@@ -662,11 +662,12 @@ class AttestationProtocol {
             insert.bind(4, osEnforcedString);
             insert.step();
             insert.dispose();
-            conn.dispose();
 
             return new VerificationResult(hasPersistentKey, teeEnforcedString, osEnforcedString);
         } catch (final SQLiteException e) {
             throw new IOException(e);
+        } finally {
+            conn.dispose();
         }
     }
 
