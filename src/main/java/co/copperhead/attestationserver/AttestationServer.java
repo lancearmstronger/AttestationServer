@@ -107,9 +107,14 @@ public class AttestationServer {
                     st.step();
                     st.dispose();
                     conn.dispose();
-                } catch (SQLiteException e) {
+                } catch (final SQLiteException e) {
                     e.printStackTrace();
-                    throw new IOException(e);
+                    final String response = "Failed to save data.\n";
+                    exchange.sendResponseHeaders(500, response.length());
+                    final OutputStream output = exchange.getResponseBody();
+                    output.write(response.getBytes());
+                    output.close();
+                    return;
                 }
 
                 final String response = "Success\n";
@@ -166,12 +171,14 @@ public class AttestationServer {
 
                 try {
                     AttestationProtocol.verifySerialized(attestationResult, pendingChallenges);
-                } catch (final DataFormatException | GeneralSecurityException | IOException e) {
+                } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
                     e.printStackTrace();
-                    throw new IOException(e);
-                } catch (final BufferUnderflowException e) {
-                    e.printStackTrace();
-                    throw new IOException(e);
+                    final String response = "Error\n";
+                    exchange.sendResponseHeaders(400, response.length());
+                    final OutputStream output = exchange.getResponseBody();
+                    output.write(response.getBytes());
+                    output.close();
+                    return;
                 }
 
                 final String response = "Success\n";
