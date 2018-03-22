@@ -34,7 +34,7 @@ public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
 
-    static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
+    private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .maximumSize(100000)
             .build();
