@@ -76,6 +76,7 @@ public class AttestationServer {
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
         server.createContext("/submit", new SubmitHandler());
         server.createContext("/verify", new VerifyHandler());
+        server.createContext("/devices", new DevicesHandler());
         server.setExecutor(Executors.newCachedThreadPool());
         server.start();
     }
@@ -190,6 +191,74 @@ public class AttestationServer {
                 exchange.sendResponseHeaders(200, -1);
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+    private static class DevicesHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+                exchange.sendResponseHeaders(200, 0);
+                final OutputStream output = exchange.getResponseBody();
+                final String response = "Devices\n";
+
+                try {
+                    final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                    conn.open();
+
+                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), hex(pinned_certificate_0), hex(pinned_certificate_1), hex(pinned_certificate_2), hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices");
+                    boolean started = false;
+                    while (select.step()) {
+                        if (started) {
+                            output.write("\n-------------------------------------------------------------------\n\n".getBytes());
+                        }
+                        started = true;
+                        output.write("Device pinning data:\n\n".getBytes());
+                        output.write("fingerprint: ".getBytes());
+                        output.write(select.columnBlob(0));
+                        output.write("\n".getBytes());
+                        output.write("pinned certificate 0: ".getBytes());
+                        output.write(select.columnBlob(1));
+                        output.write("\n".getBytes());
+                        output.write("pinned certificate 1: ".getBytes());
+                        output.write(select.columnBlob(2));
+                        output.write("\n".getBytes());
+                        output.write("pinned certificate 2: ".getBytes());
+                        output.write(select.columnBlob(3));
+                        output.write("\n".getBytes());
+                        output.write("pinned verified boot key: ".getBytes());
+                        output.write(select.columnBlob(4));
+                        output.write("\n".getBytes());
+                        output.write("pinned os version: ".getBytes());
+                        output.write(select.columnBlob(5));
+                        output.write("\n".getBytes());
+                        output.write("pinned os patch level: ".getBytes());
+                        output.write(select.columnBlob(6));
+                        output.write("\n".getBytes());
+                        output.write("pinned app version: ".getBytes());
+                        output.write(select.columnBlob(7));
+                        output.write("\n".getBytes());
+                        output.write("verified time first: ".getBytes());
+                        output.write(select.columnBlob(8));
+                        output.write("\n".getBytes());
+                        output.write("verified time last: ".getBytes());
+                        output.write(select.columnBlob(9));
+                        output.write("\n".getBytes());
+                    }
+                    select.dispose();
+
+                    conn.dispose();
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                }
+
+                output.close();
+            } else {
+                exchange.getResponseHeaders().set("Allow", "GET");
                 exchange.sendResponseHeaders(405, -1);
             }
         }
