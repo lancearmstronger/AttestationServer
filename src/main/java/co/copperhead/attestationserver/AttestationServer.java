@@ -43,16 +43,16 @@ public class AttestationServer {
     public static void main(final String[] args) throws Exception {
         final SQLiteConnection samplesConn = new SQLiteConnection(SAMPLES_DATABASE);
         samplesConn.open();
-        samplesConn.exec("CREATE TABLE IF NOT EXISTS SAMPLES (Sample TEXT NOT NULL)");
+        samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (sample TEXT NOT NULL)");
         samplesConn.dispose();
 
         final SQLiteConnection attestationConn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         attestationConn.open();
         // TODO: pinned certificate chain
-        attestationConn.exec("CREATE TABLE IF NOT EXISTS DEVICES (\n" +
+        attestationConn.exec("CREATE TABLE IF NOT EXISTS Devices (\n" +
+            "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
             "pinned_certificate BLOB NOT NULL,\n" +
             "pinned_verified_boot_key BLOB NOT NULL,\n" +
-            "pinned_os_stock INTEGER NOT NULL,\n" +
             "pinned_os_version INTEGER NOT NULL,\n" +
             "pinned_os_patch_level INTEGER NOT NULL,\n" +
             "pinned_app_version INTEGER NOT NULL,\n" +
@@ -102,7 +102,7 @@ public class AttestationServer {
                 try {
                     final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                     conn.open();
-                    SQLiteStatement st = conn.prepare("INSERT INTO samples VALUES (?)");
+                    SQLiteStatement st = conn.prepare("INSERT INTO Samples VALUES (?)");
                     st.bind(1, sample.toByteArray());
                     st.step();
                     st.dispose();

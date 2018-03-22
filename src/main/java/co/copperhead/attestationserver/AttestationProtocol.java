@@ -22,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
@@ -30,6 +31,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -44,6 +46,7 @@ class AttestationProtocol {
     static final File ATTESTATION_DATABASE = new File("attestation.db");
 
     static final int CHALLENGE_LENGTH = 32;
+    private static final String SIGNATURE_ALGORITHM = "SHA256WithECDSA";
     private static final HashFunction FINGERPRINT_HASH_FUNCTION = Hashing.sha256();
     private static final int FINGERPRINT_LENGTH = FINGERPRINT_HASH_FUNCTION.bits() / 8;
 
@@ -302,23 +305,9 @@ class AttestationProtocol {
         }
     }
 
-
     private static X509Certificate generateCertificate(final InputStream in)
             throws CertificateException {
         return (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(in);
-    }
-
-    static class VerificationResult {
-        final boolean strong;
-        final String teeEnforced;
-        final String osEnforced;
-
-        VerificationResult(final boolean strong, final String teeEnforced,
-                final String osEnforced) {
-            this.strong = strong;
-            this.teeEnforced = teeEnforced;
-            this.osEnforced = osEnforced;
-        }
     }
 
     private static Verified verifyStateless(final Certificate[] certificates,
@@ -460,6 +449,29 @@ class AttestationProtocol {
         }
     }
 
+    private static void verifySignature(final PublicKey key, final ByteBuffer message,
+            final byte[] signature) throws GeneralSecurityException {
+        final Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
+        sig.initVerify(key);
+        sig.update(message);
+        if (!sig.verify(signature)) {
+            throw new GeneralSecurityException("signature verification failed");
+        }
+    }
+
+    static class VerificationResult {
+        final boolean strong;
+        final String teeEnforced;
+        final String osEnforced;
+
+        VerificationResult(final boolean strong, final String teeEnforced,
+                final String osEnforced) {
+            this.strong = strong;
+            this.teeEnforced = teeEnforced;
+            this.osEnforced = osEnforced;
+        }
+    }
+
     private static VerificationResult verify(final byte[] fingerprint,
             final Cache<ByteBuffer, Boolean> pendingChallenges, final ByteBuffer signedMessage, final byte[] signature,
             final Certificate[] attestationCertificates, final boolean userProfileSecure,
@@ -475,26 +487,53 @@ class AttestationProtocol {
         final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
         try {
             conn.open();
+            final SQLiteStatement st = conn.prepare("SELECT * from Devices WHERE fingerprint = ?");
+            st.bind(1, fingerprint);
+            if (st.step()) {
+                System.err.println("found device");
+                st.dispose();
+            } else {
+                System.err.println("did not find device");
+                st.dispose();
+                if (hasPersistentKey) {
+                    throw new GeneralSecurityException(
+                            "Pairing data for this Auditee is missing. Cannot perform paired attestation.\n" +
+                            "\nEither the initial pairing was incomplete or the device is compromised.\n" +
+                            "\nIf the initial pairing was simply not completed, clear the pairing data on either the Auditee or the Auditor via the menu and try again.\n");
+                }
+            }
+
+            final Verified verified = verifyStateless(attestationCertificates, pendingChallenges,
+                    generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes())));
+
+            if (hasPersistentKey) {
+                // TODO: lots of unported code
+            } else {
+                verifySignature(attestationCertificates[0].getPublicKey(), signedMessage, signature);
+
+                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
+                insert.bind(1, fingerprint);
+                insert.bind(2, attestationCertificates[0].getEncoded());
+                insert.bind(3, verified.verifiedBootKey);
+                insert.bind(4, verified.osVersion);
+                insert.bind(5, verified.osPatchLevel);
+                insert.bind(6, verified.appVersion);
+                final long now = new Date().getTime();
+                insert.bind(7, now);
+                insert.bind(8, now);
+                insert.step();
+                insert.dispose();
+
+                // TODO: pin certificate chain
+                // TODO: report results
+            }
+
             conn.dispose();
         } catch (final SQLiteException e) {
             throw new IOException(e);
         }
 
-        //final SharedPreferences preferences =
-                //context.getSharedPreferences(PREFERENCES_DEVICE_PREFIX + fingerprintHex,
-                        //Context.MODE_PRIVATE);
-        //if (hasPersistentKey && !preferences.contains(KEY_PINNED_CERTIFICATE_LENGTH)) {
-            //throw new GeneralSecurityException(
-                    //"Pairing data for this Auditee is missing. Cannot perform paired attestation.\n" +
-                    //"\nEither the initial pairing was incomplete or the device is compromised.\n" +
-                    //"\nIf the initial pairing was simply not completed, clear the pairing data on either the Auditee or the Auditor via the menu and try again.\n");
-        //}
-
-        final Verified verified = verifyStateless(attestationCertificates, pendingChallenges,
-                generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes())));
-
-        // TODO: lots of unported code
-        return null;
+        return new VerificationResult(hasPersistentKey, "TODO", "TODO");
     }
 
     static VerificationResult verifySerialized(final byte[] attestationResult,
