@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -152,6 +153,11 @@ class AttestationProtocol {
             "BE9FDEEE9EB474CEEB57B7795B75B0DFC0970EAA513574BC37A598E153916A8A";
     private static final int OS_VERSION_MINIMUM = 80000;
     private static final int OS_PATCH_LEVEL_MINIMUM = 201801;
+
+    // Offset from version code to user-facing version: version 1 has version code 10, etc.
+    private static final int ATTESTATION_APP_VERSION_CODE_OFFSET = 9;
+    // Split displayed fingerprint into groups of 4 characters
+    private static final int FINGERPRINT_SPLIT_INTERVAL = 4;
 
     private static final String BKL_L04 = "Huawei Honor View 10 (BKL-L04)";
     private static final String PIXEL_2 = "Google Pixel 2";
@@ -444,6 +450,36 @@ class AttestationProtocol {
         }
     }
 
+    private static void appendVerifiedInformation(final StringBuilder builder,
+            final Verified verified, final String fingerprint) {
+        builder.append(String.format("Device: %s\n", verified.device));
+        if (verified.isStock) {
+            builder.append(String.format("OS: %s\n", "Stock"));
+        } else {
+            builder.append(String.format("OS: %s\n", "CopperheadOS"));
+        }
+
+        final String osVersion = String.format(Locale.US, "%06d", verified.osVersion);
+        builder.append(String.format("OS version: %s\n",
+                Integer.parseInt(osVersion.substring(0, 2)) + "." +
+                Integer.parseInt(osVersion.substring(2, 4)) + "." +
+                Integer.parseInt(osVersion.substring(4, 6))));
+
+        final String osPatchLevel = Integer.toString(verified.osPatchLevel);
+        builder.append(String.format("OS patch level: %s\n",
+                osPatchLevel.substring(0, 4) + "-" + osPatchLevel.substring(4, 6)));
+
+        final StringBuilder splitFingerprint = new StringBuilder();
+        for (int i = 0; i < fingerprint.length(); i += FINGERPRINT_SPLIT_INTERVAL) {
+            splitFingerprint.append(fingerprint.substring(i,
+                    Math.min(fingerprint.length(), i + FINGERPRINT_SPLIT_INTERVAL)));
+            if (i + FINGERPRINT_SPLIT_INTERVAL < fingerprint.length()) {
+                splitFingerprint.append("-");
+            }
+        }
+        builder.append(String.format("Identity: %s\n", splitFingerprint.toString()));
+    }
+
     private static void verifySignature(final PublicKey key, final ByteBuffer message,
             final byte[] signature) throws GeneralSecurityException {
         final Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
@@ -467,6 +503,10 @@ class AttestationProtocol {
         }
     }
 
+    private static String toYesNoString(final boolean value) {
+        return value ? "yes" : "no";
+    }
+
     private static VerificationResult verify(final byte[] fingerprint,
             final Cache<ByteBuffer, Boolean> pendingChallenges, final ByteBuffer signedMessage, final byte[] signature,
             final Certificate[] attestationCertificates, final boolean userProfileSecure,
@@ -488,8 +528,10 @@ class AttestationProtocol {
             int pinnedOsVersion = Integer.MAX_VALUE;
             int pinnedOsPatchLevel = Integer.MAX_VALUE;
             int pinnedAppVersion = Integer.MAX_VALUE;
+            long verifiedTimeFirst = 0;
+            long verifiedTimeLast = 0;
             if (hasPersistentKey) {
-                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version from Devices WHERE fingerprint = ?");
+                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last from Devices WHERE fingerprint = ?");
                 st.bind(1, fingerprint);
                 if (st.step()) {
                     persistentCertificateEncoded = st.columnBlob(0);
@@ -497,7 +539,8 @@ class AttestationProtocol {
                     pinnedOsVersion = st.columnInt(2);
                     pinnedOsPatchLevel = st.columnInt(3);
                     pinnedAppVersion = st.columnInt(4);
-                    System.err.println("found device");
+                    verifiedTimeFirst = st.columnLong(5);
+                    verifiedTimeLast = st.columnLong(6);
                     st.dispose();
                 } else {
                     st.dispose();
@@ -511,6 +554,8 @@ class AttestationProtocol {
             final Verified verified = verifyStateless(attestationCertificates, pendingChallenges,
                     generateCertificate(new ByteArrayInputStream(GOOGLE_ROOT_CERTIFICATE.getBytes())));
             final byte[] verifiedBootKey = BaseEncoding.base16().decode(verified.verifiedBootKey);
+
+            final StringBuilder teeEnforced = new StringBuilder();
 
             if (hasPersistentKey) {
                 // TODO: verify pinned certificate chain
@@ -534,6 +579,12 @@ class AttestationProtocol {
                 if (verified.appVersion < pinnedAppVersion) {
                     throw new GeneralSecurityException("App version downgraded");
                 }
+
+                appendVerifiedInformation(teeEnforced, verified, fingerprintHex);
+                teeEnforced.append(String.format("First verified: %s\n",
+                        new Date(verifiedTimeFirst)));
+                teeEnforced.append(String.format("Last verified: %s\n",
+                        new Date(verifiedTimeLast)));
 
                 final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, verified_time_last = ? WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
@@ -560,15 +611,43 @@ class AttestationProtocol {
                 insert.dispose();
 
                 // TODO: pin certificate chain
-                // TODO: report results
+
+                appendVerifiedInformation(teeEnforced, verified, fingerprintHex);
             }
 
             conn.dispose();
+
+            final StringBuilder osEnforced = new StringBuilder();
+            osEnforced.append(String.format("Auditor app version: %s\n",
+                    verified.appVersion - ATTESTATION_APP_VERSION_CODE_OFFSET));
+            osEnforced.append(String.format("User profile secure: %s\n",
+                    toYesNoString(userProfileSecure)));
+            osEnforced.append(String.format("Enrolled fingerprints: %s\n",
+                    toYesNoString(enrolledFingerprints)));
+            osEnforced.append(String.format("Accessibility service(s) enabled: %s\n",
+                    toYesNoString(accessibility)));
+
+            final String deviceAdminState;
+            if (deviceAdminNonSystem) {
+                deviceAdminState = "yes, but only system apps";
+            } else if (deviceAdmin) {
+                deviceAdminState = "yes, with non-system apps";
+            } else {
+                deviceAdminState = "no";
+            }
+            osEnforced.append(String.format("Device administrator(s) enabled: %s\n", deviceAdminState));
+
+            osEnforced.append(String.format("Android Debug Bridge enabled: %s\n",
+                    toYesNoString(adbEnabled)));
+            osEnforced.append(String.format("Add users from lock screen: %s\n",
+                    toYesNoString(addUsersWhenLocked)));
+            osEnforced.append(String.format("Disallow new USB peripherals when locked: %s\n",
+                    toYesNoString(denyNewUsb)));
+
+            return new VerificationResult(hasPersistentKey, teeEnforced.toString(), osEnforced.toString());
         } catch (final SQLiteException e) {
             throw new IOException(e);
         }
-
-        return new VerificationResult(hasPersistentKey, "TODO", "TODO");
     }
 
     static VerificationResult verifySerialized(final byte[] attestationResult,
