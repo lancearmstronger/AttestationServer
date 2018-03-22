@@ -117,11 +117,7 @@ public class AttestationServer {
                     return;
                 }
 
-                final String response = "Success\n";
-                exchange.sendResponseHeaders(200, response.length());
-                final OutputStream output = exchange.getResponseBody();
-                output.write(response.getBytes());
-                output.close();
+                exchange.sendResponseHeaders(200, -1);
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
@@ -178,11 +174,7 @@ public class AttestationServer {
                     return;
                 }
 
-                final String response = "Success\n";
-                exchange.sendResponseHeaders(200, response.length());
-                final OutputStream output = exchange.getResponseBody();
-                output.write(response.getBytes());
-                output.close();
+                exchange.sendResponseHeaders(200, -1);
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
                 exchange.sendResponseHeaders(405, -1);
