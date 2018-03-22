@@ -523,7 +523,7 @@ class AttestationProtocol {
         try {
             conn.open();
 
-            byte[] persistentCertificateEncoded = null;
+            final byte[][] pinnedCertificates = new byte[3][];
             byte[] pinnedVerifiedBootKey = null;
             int pinnedOsVersion = Integer.MAX_VALUE;
             int pinnedOsPatchLevel = Integer.MAX_VALUE;
@@ -531,16 +531,18 @@ class AttestationProtocol {
             long verifiedTimeFirst = 0;
             long verifiedTimeLast = 0;
             if (hasPersistentKey) {
-                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last from Devices WHERE fingerprint = ?");
+                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last from Devices WHERE fingerprint = ?");
                 st.bind(1, fingerprint);
                 if (st.step()) {
-                    persistentCertificateEncoded = st.columnBlob(0);
-                    pinnedVerifiedBootKey = st.columnBlob(1);
-                    pinnedOsVersion = st.columnInt(2);
-                    pinnedOsPatchLevel = st.columnInt(3);
-                    pinnedAppVersion = st.columnInt(4);
-                    verifiedTimeFirst = st.columnLong(5);
-                    verifiedTimeLast = st.columnLong(6);
+                    pinnedCertificates[0] = st.columnBlob(0);
+                    pinnedCertificates[1] = st.columnBlob(1);
+                    pinnedCertificates[2] = st.columnBlob(2);
+                    pinnedVerifiedBootKey = st.columnBlob(3);
+                    pinnedOsVersion = st.columnInt(4);
+                    pinnedOsPatchLevel = st.columnInt(5);
+                    pinnedAppVersion = st.columnInt(6);
+                    verifiedTimeFirst = st.columnLong(7);
+                    verifiedTimeLast = st.columnLong(8);
                     st.dispose();
                 } else {
                     st.dispose();
@@ -557,11 +559,19 @@ class AttestationProtocol {
 
             final StringBuilder teeEnforced = new StringBuilder();
 
+            if (attestationCertificates.length != 4) {
+                throw new GeneralSecurityException("currently only support certificate chains with length 4");
+            }
+
             if (hasPersistentKey) {
-                // TODO: verify pinned certificate chain
+                for (int i = 1; i < attestationCertificates.length - 1; i++) {
+                    if (!Arrays.equals(attestationCertificates[i].getEncoded(), pinnedCertificates[i])) {
+                        throw new GeneralSecurityException("certificate chain mismatch");
+                    }
+                }
 
                 final Certificate persistentCertificate = generateCertificate(
-                        new ByteArrayInputStream(persistentCertificateEncoded));
+                        new ByteArrayInputStream(pinnedCertificates[0]));
                 if (!Arrays.equals(fingerprint, getFingerprint(persistentCertificate))) {
                     throw new GeneralSecurityException("corrupt Auditor pinning data");
                 }
@@ -597,20 +607,20 @@ class AttestationProtocol {
              } else {
                 verifySignature(attestationCertificates[0].getPublicKey(), signedMessage, signature);
 
-                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
+                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 insert.bind(1, fingerprint);
                 insert.bind(2, attestationCertificates[0].getEncoded());
-                insert.bind(3, verifiedBootKey);
-                insert.bind(4, verified.osVersion);
-                insert.bind(5, verified.osPatchLevel);
-                insert.bind(6, verified.appVersion);
+                insert.bind(3, attestationCertificates[1].getEncoded());
+                insert.bind(4, attestationCertificates[2].getEncoded());
+                insert.bind(5, verifiedBootKey);
+                insert.bind(6, verified.osVersion);
+                insert.bind(7, verified.osPatchLevel);
+                insert.bind(8, verified.appVersion);
                 final long now = new Date().getTime();
-                insert.bind(7, now);
-                insert.bind(8, now);
+                insert.bind(9, now);
+                insert.bind(10, now);
                 insert.step();
                 insert.dispose();
-
-                // TODO: pin certificate chain
 
                 appendVerifiedInformation(teeEnforced, verified, fingerprintHex);
             }

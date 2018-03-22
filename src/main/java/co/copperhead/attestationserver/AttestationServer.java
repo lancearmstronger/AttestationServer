@@ -48,17 +48,19 @@ public class AttestationServer {
 
         final SQLiteConnection attestationConn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         attestationConn.open();
-        // TODO: pinned certificate chain
-        attestationConn.exec("CREATE TABLE IF NOT EXISTS Devices (\n" +
-            "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
-            "pinned_certificate BLOB NOT NULL,\n" +
-            "pinned_verified_boot_key BLOB NOT NULL,\n" +
-            "pinned_os_version INTEGER NOT NULL,\n" +
-            "pinned_os_patch_level INTEGER NOT NULL,\n" +
-            "pinned_app_version INTEGER NOT NULL,\n" +
-            "verified_time_first INTEGER NOT NULL,\n" +
-            "verified_time_last INTEGER NOT NULL\n" +
-            ")");
+        attestationConn.exec(
+                "CREATE TABLE IF NOT EXISTS Devices (\n" +
+                "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
+                "pinned_certificate_0 BLOB NOT NULL,\n" +
+                "pinned_certificate_1 BLOB NOT NULL,\n" +
+                "pinned_certificate_2 BLOB NOT NULL,\n" +
+                "pinned_verified_boot_key BLOB NOT NULL,\n" +
+                "pinned_os_version INTEGER NOT NULL,\n" +
+                "pinned_os_patch_level INTEGER NOT NULL,\n" +
+                "pinned_app_version INTEGER NOT NULL,\n" +
+                "verified_time_first INTEGER NOT NULL,\n" +
+                "verified_time_last INTEGER NOT NULL\n" +
+                ")");
         attestationConn.dispose();
 
         try {
