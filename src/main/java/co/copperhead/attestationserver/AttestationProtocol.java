@@ -487,15 +487,15 @@ class AttestationProtocol {
         final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
         try {
             conn.open();
-            final SQLiteStatement st = conn.prepare("SELECT * from Devices WHERE fingerprint = ?");
-            st.bind(1, fingerprint);
-            if (st.step()) {
-                System.err.println("found device");
-                st.dispose();
-            } else {
-                System.err.println("did not find device");
-                st.dispose();
-                if (hasPersistentKey) {
+
+            if (hasPersistentKey) {
+                final SQLiteStatement st = conn.prepare("SELECT * from Devices WHERE fingerprint = ?");
+                st.bind(1, fingerprint);
+                if (st.step()) {
+                    System.err.println("found device");
+                    st.dispose();
+                } else {
+                    st.dispose();
                     throw new GeneralSecurityException(
                             "Pairing data for this Auditee is missing. Cannot perform paired attestation.\n" +
                             "\nEither the initial pairing was incomplete or the device is compromised.\n" +
