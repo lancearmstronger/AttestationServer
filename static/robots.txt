@@ -1,0 +1,2 @@
+User-agent: *
+Sitemap: https://attestation.copperhead.co/sitemap.xml
