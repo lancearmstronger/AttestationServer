@@ -33,6 +33,7 @@ import java.util.zip.DataFormatException;
 public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
+    private static final int VERIFY_INTERVAL = 3600;
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
@@ -205,7 +206,11 @@ public class AttestationServer {
                     return;
                 }
 
-                exchange.sendResponseHeaders(200, -1);
+                final String response = Integer.toString(VERIFY_INTERVAL);
+                exchange.sendResponseHeaders(200, response.length());
+                final OutputStream output = exchange.getResponseBody();
+                output.write(response.getBytes());
+                output.close();
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
                 exchange.sendResponseHeaders(405, -1);
