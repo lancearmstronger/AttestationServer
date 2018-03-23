@@ -1,9 +1,33 @@
+/* use the standard Material Light theme to match the Auditor app */
+/* https://android.googlesource.com/platform/frameworks/base/+/android-8.1.0_r15/core/res/res/values/colors_material.xml */
+
 body {
-    /* use the standard Material Light theme */
-    /* https://android.googlesource.com/platform/frameworks/base/+/android-8.1.0_r15/core/res/res/values/colors_material.xml */
     font-family: Roboto, sans-serif;
     background-color: #fafafa; /* grey50 */
     color: rgba(0, 0, 0, 0.87); /* 87% black */
+    margin: 0;
+    padding: 0;
+}
+
+nav ul {
+    margin: 0;
+    padding: 0;
+}
+
+nav {
+    background-color: #212121; /* grey900 */
+}
+
+nav ul li {
+    display: inline-block;
+    list-style-type: none;
+}
+
+nav ul li a {
+    color: #fff; /* 100% white */
+    display: block;
+    text-decoration: none;
+    padding: 1em;
 }
 
 #content {
