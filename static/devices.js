@@ -1,13 +1,14 @@
 "use strict";
 
 const devices = document.getElementById("devices");
+devices.style.display = "block";
 
 fetch("/devices")
     .then(response => {
         if (!response.ok) {
-            throw new Error(response.statusText);
+            Project.reject();
         }
         return response.text();
     }).then(text => {
         devices.innerText = text;
-    }).catch(error => console.log("fetch error: " + error));
+    }).catch(error => devices.innerHTML = "<p>Failed to fetch device data.</p>");
