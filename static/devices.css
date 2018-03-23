@@ -8,6 +8,11 @@ body {
     overflow-wrap: break-word;
 }
 
+#qr {
+    display: block;
+    margin: auto;
+}
+
 #devices {
     display: none;
 }
