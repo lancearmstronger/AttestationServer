@@ -34,6 +34,7 @@ public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
     private static final int VERIFY_INTERVAL = 3600;
+    private static final String DEMO_ACCOUNT = "0000000000000000000000000000000000000000000000000000000000000000";
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
@@ -164,6 +165,16 @@ public class AttestationServer {
                 output.write(challengeMessage);
                 output.close();
             } else if (method.equalsIgnoreCase("POST")) {
+                final String account = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
+                if (!DEMO_ACCOUNT.equals(account)) {
+                    final String response = "invalid account";
+                    exchange.sendResponseHeaders(403, response.length());
+                    final OutputStream output = exchange.getResponseBody();
+                    output.write(response.getBytes());
+                    output.close();
+                    return;
+                }
+
                 final InputStream input = exchange.getRequestBody();
 
                 final ByteArrayOutputStream attestation = new ByteArrayOutputStream();
@@ -172,7 +183,7 @@ public class AttestationServer {
                     attestation.write(buffer, 0, read);
 
                     if (attestation.size() > AttestationProtocol.MAX_MESSAGE_SIZE) {
-                        final String response = "Attestation too large\n";
+                        final String response = "Attestation too large";
                         exchange.sendResponseHeaders(400, response.length());
                         final OutputStream output = exchange.getResponseBody();
                         output.write(response.getBytes());
