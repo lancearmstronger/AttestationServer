@@ -522,6 +522,7 @@ class AttestationProtocol {
         final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
         try {
             conn.open();
+            conn.setBusyTimeout(AttestationServer.BUSY_TIMEOUT);
 
             final byte[][] pinnedCertificates = new byte[3][];
             byte[] pinnedVerifiedBootKey = null;

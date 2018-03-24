@@ -38,6 +38,7 @@ public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
     private static final int VERIFY_INTERVAL = 3600;
+    static final int BUSY_TIMEOUT = 10 * 1000;
     private static final String DEMO_ACCOUNT = "0000000000000000000000000000000000000000000000000000000000000000";
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
@@ -127,6 +128,7 @@ public class AttestationServer {
                 final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                 try {
                     conn.open();
+                    conn.setBusyTimeout(BUSY_TIMEOUT);
                     final SQLiteStatement st = conn.prepare("INSERT INTO Samples VALUES (?)");
                     st.bind(1, sample.toByteArray());
                     st.step();
@@ -245,6 +247,7 @@ public class AttestationServer {
                 final JsonArrayBuilder devices = Json.createArrayBuilder();
                 try {
                     conn.openReadonly();
+                    conn.setBusyTimeout(BUSY_TIMEOUT);
 
                     final JsonObjectBuilder device = Json.createObjectBuilder();
                     final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), hex(pinned_certificate_0), hex(pinned_certificate_1), hex(pinned_certificate_2), hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices");
