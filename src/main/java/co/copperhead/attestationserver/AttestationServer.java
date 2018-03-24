@@ -30,6 +30,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.DataFormatException;
 
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonArrayBuilder;
+import javax.json.Json;
+
 public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
@@ -94,7 +98,7 @@ public class AttestationServer {
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
         server.createContext("/submit", new SubmitHandler());
         server.createContext("/verify", new VerifyHandler());
-        server.createContext("/devices", new DevicesHandler());
+        server.createContext("/devices.json", new DevicesHandler());
         server.setExecutor(Executors.newCachedThreadPool());
         server.start();
     }
@@ -238,62 +242,38 @@ public class AttestationServer {
                 final String response = "Devices\n";
 
                 final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                final JsonArrayBuilder devices = Json.createArrayBuilder();
                 try {
                     conn.openReadonly();
 
+                    final JsonObjectBuilder device = Json.createObjectBuilder();
                     final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), hex(pinned_certificate_0), hex(pinned_certificate_1), hex(pinned_certificate_2), hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices");
-                    boolean started = false;
                     while (select.step()) {
-                        if (started) {
-                            output.write("\n-------------------------------------------------------------------\n\n".getBytes());
-                        }
-                        started = true;
-                        output.write("Device pinning data:\n\n".getBytes());
-                        output.write("fingerprint: ".getBytes());
-                        output.write(select.columnBlob(0));
-                        output.write("\n".getBytes());
-                        output.write("pinned certificate 0: ".getBytes());
-                        output.write(select.columnBlob(1));
-                        output.write("\n".getBytes());
-                        output.write("pinned certificate 1: ".getBytes());
-                        output.write(select.columnBlob(2));
-                        output.write("\n".getBytes());
-                        output.write("pinned certificate 2: ".getBytes());
-                        output.write(select.columnBlob(3));
-                        output.write("\n".getBytes());
-                        output.write("pinned verified boot key: ".getBytes());
-                        output.write(select.columnBlob(4));
-                        output.write("\n".getBytes());
-                        output.write("pinned os version: ".getBytes());
-                        output.write(select.columnBlob(5));
-                        output.write("\n".getBytes());
-                        output.write("pinned os patch level: ".getBytes());
-                        output.write(select.columnBlob(6));
-                        output.write("\n".getBytes());
-                        output.write("pinned app version: ".getBytes());
-                        output.write(select.columnBlob(7));
-                        output.write("\n".getBytes());
-                        output.write("verified time first: ".getBytes());
-                        output.write(select.columnBlob(8));
-                        output.write("\n".getBytes());
-                        output.write("verified time last: ".getBytes());
-                        output.write(select.columnBlob(9));
-                        output.write("\n".getBytes());
+                        device.add("fingerprint", select.columnString(0));
+                        device.add("pinnedCertificate0", select.columnString(1));
+                        device.add("pinnedCertificate1", select.columnString(2));
+                        device.add("pinnedCertificate2", select.columnString(3));
+                        device.add("verifiedBootKey", select.columnString(4));
+                        device.add("pinnedOsVersion", select.columnInt(5));
+                        device.add("pinnedOsPatchLevel", select.columnInt(6));
+                        device.add("pinnedAppVersion", select.columnInt(7));
+                        device.add("verifiedTimeFirst", select.columnLong(8));
+                        device.add("verifiedTimeLast", select.columnLong(9));
 
                         final SQLiteStatement history = conn.prepare("SELECT strong, teeEnforced, osEnforced FROM Attestations where hex(fingerprint) = ? order by id");
                         history.bind(1, select.columnString(0));
+
+                        final JsonArrayBuilder attestations = Json.createArrayBuilder();
                         while (history.step()) {
-                            output.write("\nAttestation result:\n\n".getBytes());
-                            if (history.columnInt(0) != 0) {
-                                output.write("Successfully performed strong paired verification and identity confirmation.\n\n".getBytes());
-                            } else {
-                                output.write("Successfully performed basic initial verification and pairing.\n\n".getBytes());
-                            }
-                            output.write("Verified device information:\n\n".getBytes());
-                            output.write(history.columnBlob(1));
-                            output.write("\nInformation provided by the verified OS:\n\n".getBytes());
-                            output.write(history.columnBlob(2));
+                            attestations.add(Json.createObjectBuilder()
+                                    .add("strong", history.columnInt(0) != 0)
+                                    .add("teeEnforced", history.columnString(1))
+                                    .add("osEnforced", history.columnString(2))
+                                    .build());
                         }
+                        device.add("attestations", attestations.build());
+                        devices.add(device.build());
+
                         history.dispose();
                     }
                     select.dispose();
@@ -305,6 +285,7 @@ public class AttestationServer {
                     conn.dispose();
                 }
 
+                output.write(devices.build().toString().getBytes());
                 output.close();
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET");

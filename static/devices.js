@@ -3,12 +3,63 @@
 const devices = document.getElementById("devices");
 devices.style.display = "block";
 
-fetch("/devices")
+fetch("/devices.json")
     .then(response => {
         if (!response.ok) {
             Project.reject();
         }
-        return response.text();
-    }).then(text => {
-        devices.innerText = text;
-    }).catch(error => devices.innerHTML = "<p>Failed to fetch device data.</p>");
+        return response.json();
+    }).then(devicesJson => {
+        devices.innerText = null;
+        for (const device of devicesJson) {
+            const h2 = document.createElement("h2");
+            h2.innerText = "Device";
+            devices.append(h2);
+
+            const pinning = document.createElement("p");
+            pinning.innerHTML = `Fingerprint: ${device.fingerprint}<br/>
+Pinned certificate 0: ${device.pinnedCertificate0}<br/>
+Pinned certificate 1: ${device.pinnedCertificate1}<br/>
+Pinned certificate 2: ${device.pinnedCertificate2}<br/>
+Pinned verified boot key: ${device.verifiedBootKey}<br/>
+Pinned OS version: ${device.pinnedOsVersion}<br/>
+Pinned OS patch level: ${device.pinnedOsPatchLevel}<br/>
+Pinned Auditor app version: ${device.pinnedAppVersion}<br/>
+First verified time: ${device.verifiedTimeFirst}<br/>
+Last verified time: ${device.verifiedTimeLast}`
+            devices.append(pinning);
+
+            const h3 = document.createElement("h3");
+            h3.innerText = "Attestation history";
+            devices.append(h3);
+
+            for (const attestation of device.attestations) {
+                const p = document.createElement("p");
+                if (attestation.strong) {
+                    p.innerHTML = "<strong>Successfully performed strong paired verification and identity confirmation.</strong>";
+                } else {
+                    p.innerHTML = "<strong>Successfully performed basic initial verification and pairing.</strong>";
+                }
+                devices.append(p);
+
+                const teeEnforcedIntro = document.createElement("p");
+                teeEnforcedIntro.innerHTML = "<b>Verified device information:</b>";
+                devices.append(teeEnforcedIntro);
+
+                const teeEnforced = document.createElement("p");
+                teeEnforced.innerText = attestation.teeEnforced;
+                devices.append(teeEnforced);
+
+                const osEnforcedIntro = document.createElement("p");
+                osEnforcedIntro.innerHTML = "<b>Information provided by the verified OS:</b>";
+                devices.append(osEnforcedIntro);
+
+                const osEnforced = document.createElement("p");
+                osEnforced.innerText = attestation.osEnforced;
+                devices.append(osEnforced);
+            }
+        }
+    }).catch(error => {
+        console.log(error);
+        devices.innerHTML = "<p>Failed to fetch device data.</p>"
+    });
