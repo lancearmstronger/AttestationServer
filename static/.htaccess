@@ -1,0 +1,7 @@
+<FilesMatch "\.(html|ico|txt|xml)$">
+Header set Cache-Control "public, max-age=1800"
+</FilesMatch>
+
+<FilesMatch "\.(css|png|js|woff2)$">
+Header set Cache-Control "public, max-age=31536000"
+</FilesMatch>
