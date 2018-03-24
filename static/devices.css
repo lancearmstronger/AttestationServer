@@ -23,6 +23,10 @@ nav ul li {
     list-style-type: none;
 }
 
+nav ul li:hover {
+    background-color: #323232;
+}
+
 nav ul li a {
     color: #fff; /* 100% white */
     display: block;
