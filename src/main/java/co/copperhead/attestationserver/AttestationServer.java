@@ -239,7 +239,7 @@ public class AttestationServer {
 
                 final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                 try {
-                    conn.open();
+                    conn.openReadonly();
 
                     final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), hex(pinned_certificate_0), hex(pinned_certificate_1), hex(pinned_certificate_2), hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices");
                     boolean started = false;
