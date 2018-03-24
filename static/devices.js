@@ -1,5 +1,6 @@
 "use strict";
 
+const attestationAppVersionCodeOffset = 9;
 const devices = document.getElementById("devices");
 devices.style.display = "block";
 
@@ -24,9 +25,9 @@ Pinned certificate 2: ${device.pinnedCertificate2}<br/>
 Pinned verified boot key: ${device.verifiedBootKey}<br/>
 Pinned OS version: ${device.pinnedOsVersion}<br/>
 Pinned OS patch level: ${device.pinnedOsPatchLevel}<br/>
-Pinned Auditor app version: ${device.pinnedAppVersion}<br/>
-First verified time: ${device.verifiedTimeFirst}<br/>
-Last verified time: ${device.verifiedTimeLast}`
+Pinned Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
+First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
+Last verified time: ${new Date(device.verifiedTimeLast)}`
             devices.append(pinning);
 
             const h3 = document.createElement("h3");
