@@ -56,7 +56,7 @@ Last verified time: ${new Date(device.verifiedTimeLast)}`
                 devices.append(p);
 
                 const teeEnforcedIntro = document.createElement("p");
-                teeEnforcedIntro.innerHTML = "<b>Verified device information:</b>";
+                teeEnforcedIntro.innerHTML = "<h4>Verified device information:</h4>";
                 devices.append(teeEnforcedIntro);
 
                 const teeEnforced = document.createElement("p");
@@ -64,7 +64,7 @@ Last verified time: ${new Date(device.verifiedTimeLast)}`
                 devices.append(teeEnforced);
 
                 const osEnforcedIntro = document.createElement("p");
-                osEnforcedIntro.innerHTML = "<b>Information provided by the verified OS:</b>";
+                osEnforcedIntro.innerHTML = "<h4>Information provided by the verified OS:</h4>";
                 devices.append(osEnforcedIntro);
 
                 const osEnforced = document.createElement("p");
