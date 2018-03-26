@@ -451,7 +451,7 @@ class AttestationProtocol {
     }
 
     private static void appendVerifiedInformation(final StringBuilder builder,
-            final Verified verified, final String fingerprint) {
+            final Verified verified, final String fingerprint, final Date now) {
         builder.append(String.format("Device: %s\n", verified.device));
         if (verified.isStock) {
             builder.append(String.format("OS: %s\n", "Stock"));
@@ -478,6 +478,7 @@ class AttestationProtocol {
             }
         }
         builder.append(String.format("Identity: %s\n", splitFingerprint.toString()));
+        builder.append(String.format("Time: %s\n", now));
     }
 
     private static void verifySignature(final PublicKey key, final ByteBuffer message,
@@ -591,17 +592,14 @@ class AttestationProtocol {
                     throw new GeneralSecurityException("App version downgraded");
                 }
 
-                appendVerifiedInformation(teeEnforced, verified, fingerprintHex);
-                teeEnforced.append(String.format("First verified: %s\n",
-                        new Date(verifiedTimeFirst)));
-                teeEnforced.append(String.format("Last verified: %s\n",
-                        new Date(verifiedTimeLast)));
+                final Date now = new Date();
+                appendVerifiedInformation(teeEnforced, verified, fingerprintHex, now);
 
                 final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, verified_time_last = ? WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
                 update.bind(2, verified.osPatchLevel);
                 update.bind(3, verified.appVersion);
-                update.bind(4, new Date().getTime());
+                update.bind(4, now.getTime());
                 update.bind(5, fingerprint);
                 update.step();
                 update.dispose();
@@ -617,13 +615,13 @@ class AttestationProtocol {
                 insert.bind(6, verified.osVersion);
                 insert.bind(7, verified.osPatchLevel);
                 insert.bind(8, verified.appVersion);
-                final long now = new Date().getTime();
-                insert.bind(9, now);
-                insert.bind(10, now);
+                final Date now = new Date();
+                insert.bind(9, now.getTime());
+                insert.bind(10, now.getTime());
                 insert.step();
                 insert.dispose();
 
-                appendVerifiedInformation(teeEnforced, verified, fingerprintHex);
+                appendVerifiedInformation(teeEnforced, verified, fingerprintHex, now);
             }
 
             final StringBuilder osEnforced = new StringBuilder();
