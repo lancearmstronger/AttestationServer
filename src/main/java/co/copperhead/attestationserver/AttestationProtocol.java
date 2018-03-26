@@ -451,14 +451,7 @@ class AttestationProtocol {
     }
 
     private static void appendVerifiedInformation(final StringBuilder builder,
-            final Verified verified, final String fingerprint, final Date now) {
-        builder.append(String.format("Device: %s\n", verified.device));
-        if (verified.isStock) {
-            builder.append(String.format("OS: %s\n", "Stock"));
-        } else {
-            builder.append(String.format("OS: %s\n", "CopperheadOS"));
-        }
-
+            final Verified verified, final Date now) {
         final String osVersion = String.format(Locale.US, "%06d", verified.osVersion);
         builder.append(String.format("OS version: %s\n",
                 Integer.parseInt(osVersion.substring(0, 2)) + "." +
@@ -469,15 +462,6 @@ class AttestationProtocol {
         builder.append(String.format("OS patch level: %s\n",
                 osPatchLevel.substring(0, 4) + "-" + osPatchLevel.substring(4, 6)));
 
-        final StringBuilder splitFingerprint = new StringBuilder();
-        for (int i = 0; i < fingerprint.length(); i += FINGERPRINT_SPLIT_INTERVAL) {
-            splitFingerprint.append(fingerprint.substring(i,
-                    Math.min(fingerprint.length(), i + FINGERPRINT_SPLIT_INTERVAL)));
-            if (i + FINGERPRINT_SPLIT_INTERVAL < fingerprint.length()) {
-                splitFingerprint.append("-");
-            }
-        }
-        builder.append(String.format("Identity: %s\n", splitFingerprint.toString()));
         builder.append(String.format("Time: %s\n", now));
     }
 
@@ -593,7 +577,7 @@ class AttestationProtocol {
                 }
 
                 final Date now = new Date();
-                appendVerifiedInformation(teeEnforced, verified, fingerprintHex, now);
+                appendVerifiedInformation(teeEnforced, verified, now);
 
                 final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, verified_time_last = ? WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
@@ -621,7 +605,7 @@ class AttestationProtocol {
                 insert.step();
                 insert.dispose();
 
-                appendVerifiedInformation(teeEnforced, verified, fingerprintHex, now);
+                appendVerifiedInformation(teeEnforced, verified, now);
             }
 
             final StringBuilder osEnforced = new StringBuilder();
