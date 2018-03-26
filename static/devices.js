@@ -1,5 +1,6 @@
 "use strict";
 
+const fingerprintSplitInterval = 4;
 const attestationAppVersionCodeOffset = 9;
 const devices = document.getElementById("devices");
 devices.style.display = "block";
@@ -25,34 +26,37 @@ fetch("/devices.json")
     }).then(devicesJson => {
         devices.innerText = null;
         for (const device of devicesJson) {
-            const h2 = document.createElement("h2");
-            h2.innerText = "Device";
-            devices.append(h2);
+            let fingerprint = "";
+            for (let i = 0; i < device.fingerprint.length; i += fingerprintSplitInterval) {
+                fingerprint += device.fingerprint.substring(i, Math.min(device.fingerprint.length, i + fingerprintSplitInterval));
+                if (i + fingerprintSplitInterval < device.fingerprint.length) {
+                    fingerprint += "-";
+                }
+            }
 
-            const pinning = document.createElement("p");
-            pinning.innerHTML = `Fingerprint: ${device.fingerprint}<br/>
+            const info = document.createElement("p");
+            info.innerHTML = `<h2>${fingerprint}</h2>
+<h3>Verified device information:</h3>
 Device: ${device.name}<br/>
 OS: ${device.os}<br/>
-Pinned OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
-Pinned OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
-Pinned Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
-First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
-Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
+OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
+OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
 <button class="toggle">show advanced information</button><span class="hidden"><br/>
-Pinned certificate 0: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate0}</span><br/>
-Pinned certificate 1: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate1}</span><br/>
-Pinned certificate 2: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate2}</span><br/>
-Pinned verified boot key: ${device.verifiedBootKey}
-</span>`
-            devices.append(pinning);
-
-            const h3 = document.createElement("h3");
-            h3.innerText = "Attestation history";
-            devices.append(h3);
+Certificate 0: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate0}</span><br/>
+Certificate 1: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate1}</span><br/>
+Certificate 2: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate2}</span><br/>
+Verified boot key: ${device.verifiedBootKey}
+</span>
+<h3>Information provided by the verified OS:</h3>
+Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}
+<h3>Attestation history</h3>
+First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
+Last verified time: ${new Date(device.verifiedTimeLast)}<br/>`
+            devices.append(info);
 
             for (const attestation of device.attestations) {
-                const time = document.createElement("p");
-                time.innerText = "Time: " + new Date(attestation.time);
+                const time = document.createElement("h4");
+                time.innerText = new Date(attestation.time);
                 devices.append(time);
 
                 const p = document.createElement("p");
@@ -64,7 +68,7 @@ Pinned verified boot key: ${device.verifiedBootKey}
                 devices.append(p);
 
                 const teeEnforcedIntro = document.createElement("p");
-                teeEnforcedIntro.innerHTML = "<h4>Verified device information:</h4>";
+                teeEnforcedIntro.innerHTML = "<h5>Verified device information (constants omitted):</h5>";
                 devices.append(teeEnforcedIntro);
 
                 const teeEnforced = document.createElement("p");
@@ -72,7 +76,7 @@ Pinned verified boot key: ${device.verifiedBootKey}
                 devices.append(teeEnforced);
 
                 const osEnforcedIntro = document.createElement("p");
-                osEnforcedIntro.innerHTML = "<h4>Information provided by the verified OS:</h4>";
+                osEnforcedIntro.innerHTML = "<h5>Information provided by the verified OS:</h5>";
                 devices.append(osEnforcedIntro);
 
                 const osEnforced = document.createElement("p");

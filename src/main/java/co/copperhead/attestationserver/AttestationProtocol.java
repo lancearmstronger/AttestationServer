@@ -156,8 +156,6 @@ class AttestationProtocol {
 
     // Offset from version code to user-facing version: version 1 has version code 10, etc.
     private static final int ATTESTATION_APP_VERSION_CODE_OFFSET = 9;
-    // Split displayed fingerprint into groups of 4 characters
-    private static final int FINGERPRINT_SPLIT_INTERVAL = 4;
 
     private static final String BKL_L04 = "Huawei Honor View 10 (BKL-L04)";
     private static final String PIXEL_2 = "Google Pixel 2";
