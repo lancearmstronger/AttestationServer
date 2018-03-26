@@ -4,6 +4,18 @@ const attestationAppVersionCodeOffset = 9;
 const devices = document.getElementById("devices");
 devices.style.display = "block";
 
+function formatOsVersion(osVersion) {
+    const padded = ("000000" + osVersion).slice(-6);
+    return parseInt(padded.substring(0, 2)) + "." +
+        parseInt(padded.substring(2, 4)) + "." +
+        parseInt(padded.substring(4, 6));
+}
+
+function formatOsPatchLevel(osPatchLevel) {
+    const string = osPatchLevel.toString();
+    return string.substring(0, 4) + "-" + string.substring(4, 6);
+}
+
 fetch("/devices.json")
     .then(response => {
         if (!response.ok) {
@@ -23,8 +35,8 @@ Pinned certificate 0: ${device.pinnedCertificate0}<br/>
 Pinned certificate 1: ${device.pinnedCertificate1}<br/>
 Pinned certificate 2: ${device.pinnedCertificate2}<br/>
 Pinned verified boot key: ${device.verifiedBootKey}<br/>
-Pinned OS version: ${device.pinnedOsVersion}<br/>
-Pinned OS patch level: ${device.pinnedOsPatchLevel}<br/>
+Pinned OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
+Pinned OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
 Pinned Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
 First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
 Last verified time: ${new Date(device.verifiedTimeLast)}`
