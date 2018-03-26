@@ -46,7 +46,7 @@ nav ul li a {
     margin: auto;
 }
 
-#devices {
+#devices, .cert {
     display: none;
 }
 

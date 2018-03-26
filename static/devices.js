@@ -31,9 +31,9 @@ fetch("/devices.json")
 
             const pinning = document.createElement("p");
             pinning.innerHTML = `Fingerprint: ${device.fingerprint}<br/>
-Pinned certificate 0: ${device.pinnedCertificate0}<br/>
-Pinned certificate 1: ${device.pinnedCertificate1}<br/>
-Pinned certificate 2: ${device.pinnedCertificate2}<br/>
+Pinned certificate 0: <button class="toggle">show</button><span class="cert"><br/>${device.pinnedCertificate0}</span><br/>
+Pinned certificate 1: <button class="toggle">show</button><span class="cert"><br/>${device.pinnedCertificate1}</span><br/>
+Pinned certificate 2: <button class="toggle">show</button><span class="cert"><br/>${device.pinnedCertificate2}</span><br/>
 Pinned verified boot key: ${device.verifiedBootKey}<br/>
 Pinned OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
 Pinned OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
@@ -70,6 +70,20 @@ Last verified time: ${new Date(device.verifiedTimeLast)}`
                 const osEnforced = document.createElement("p");
                 osEnforced.innerText = attestation.osEnforced;
                 devices.append(osEnforced);
+            }
+        }
+
+        for (const cert of document.getElementsByClassName("toggle")) {
+            cert.onclick = event => {
+                const target = event.target;
+                const cert = target.nextSibling;
+                if (cert.style.display === "inline") {
+                    target.innerText = "show";
+                    cert.style.display = "none";
+                } else {
+                    target.innerText = "hide";
+                    cert.style.display = "inline";
+                }
             }
         }
     }).catch(error => {
