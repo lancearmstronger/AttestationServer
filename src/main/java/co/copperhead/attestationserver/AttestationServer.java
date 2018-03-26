@@ -34,6 +34,11 @@ import javax.json.JsonObjectBuilder;
 import javax.json.JsonArrayBuilder;
 import javax.json.Json;
 
+import attestationserver.AttestationProtocol.DeviceInfo;
+
+import static attestationserver.AttestationProtocol.fingerprintsCopperheadOS;
+import static attestationserver.AttestationProtocol.fingerprintsStock;
+
 public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
@@ -256,7 +261,19 @@ public class AttestationServer {
                         device.add("pinnedCertificate0", select.columnString(1));
                         device.add("pinnedCertificate1", select.columnString(2));
                         device.add("pinnedCertificate2", select.columnString(3));
-                        device.add("verifiedBootKey", select.columnString(4));
+                        final String verifiedBootKey = select.columnString(4);
+                        device.add("verifiedBootKey", verifiedBootKey);
+                        DeviceInfo info = fingerprintsCopperheadOS.get(verifiedBootKey);
+                        if (info != null) {
+                            device.add("os", "CopperheadOS");
+                        } else {
+                            device.add("os", "Stock");
+                            info = fingerprintsStock.get(verifiedBootKey);
+                            if (info == null) {
+                                throw new RuntimeException("invalid fingerprint");
+                            }
+                        }
+                        device.add("name", info.name);
                         device.add("pinnedOsVersion", select.columnInt(5));
                         device.add("pinnedOsPatchLevel", select.columnInt(6));
                         device.add("pinnedAppVersion", select.columnInt(7));

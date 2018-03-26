@@ -167,7 +167,7 @@ class AttestationProtocol {
     private static final String SM_G965_MSM = "Samsung Galaxy S9+ (Snapdragon)";
     private static final String H3113 = "Sony Xperia XA2 (H3113)";
 
-    private static class DeviceInfo {
+    static class DeviceInfo {
         final String name;
         final int attestationVersion;
         final int keymasterVersion;
@@ -182,14 +182,14 @@ class AttestationProtocol {
         }
     }
 
-    private static final ImmutableMap<String, DeviceInfo> fingerprintsCopperheadOS = ImmutableMap
+    static final ImmutableMap<String, DeviceInfo> fingerprintsCopperheadOS = ImmutableMap
             .<String, DeviceInfo>builder()
             .put("36D067F8517A2284781B99A2984966BFF02D3F47310F831FCDCC4D792426B6DF",
                     new DeviceInfo(PIXEL_2, 2, 3, true))
             .put("815DCBA82BAC1B1758211FF53CAA0B6883CB6C901BE285E1B291C8BDAA12DF75",
                     new DeviceInfo(PIXEL_2_XL, 2, 3, true))
             .build();
-    private static final ImmutableMap<String, DeviceInfo> fingerprintsStock = ImmutableMap
+    static final ImmutableMap<String, DeviceInfo> fingerprintsStock = ImmutableMap
             .<String, DeviceInfo>builder()
             .put("5341E6B2646979A70E57653007A1F310169421EC9BDD9F1A5648F75ADE005AF1",
                     new DeviceInfo(BKL_L04, 2, 3, false))

@@ -35,6 +35,8 @@ Pinned certificate 0: <button class="toggle">show</button><span class="cert"><br
 Pinned certificate 1: <button class="toggle">show</button><span class="cert"><br/>${device.pinnedCertificate1}</span><br/>
 Pinned certificate 2: <button class="toggle">show</button><span class="cert"><br/>${device.pinnedCertificate2}</span><br/>
 Pinned verified boot key: ${device.verifiedBootKey}<br/>
+Device: ${device.name}<br/>
+OS: ${device.os}<br/>
 Pinned OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
 Pinned OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
 Pinned Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
