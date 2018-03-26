@@ -451,7 +451,7 @@ class AttestationProtocol {
     }
 
     private static void appendVerifiedInformation(final StringBuilder builder,
-            final Verified verified, final Date now) {
+            final Verified verified) {
         final String osVersion = String.format(Locale.US, "%06d", verified.osVersion);
         builder.append(String.format("OS version: %s\n",
                 Integer.parseInt(osVersion.substring(0, 2)) + "." +
@@ -461,8 +461,6 @@ class AttestationProtocol {
         final String osPatchLevel = Integer.toString(verified.osPatchLevel);
         builder.append(String.format("OS patch level: %s\n",
                 osPatchLevel.substring(0, 4) + "-" + osPatchLevel.substring(4, 6)));
-
-        builder.append(String.format("Time: %s\n", now));
     }
 
     private static void verifySignature(final PublicKey key, final ByteBuffer message,
@@ -517,7 +515,7 @@ class AttestationProtocol {
             long verifiedTimeFirst = 0;
             long verifiedTimeLast = 0;
             if (hasPersistentKey) {
-                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last from Devices WHERE fingerprint = ?");
+                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices WHERE fingerprint = ?");
                 st.bind(1, fingerprint);
                 if (st.step()) {
                     pinnedCertificates[0] = st.columnBlob(0);
@@ -544,6 +542,7 @@ class AttestationProtocol {
             final byte[] verifiedBootKey = BaseEncoding.base16().decode(verified.verifiedBootKey);
 
             final StringBuilder teeEnforced = new StringBuilder();
+            final long now = new Date().getTime();
 
             if (attestationCertificates.length != 4) {
                 throw new GeneralSecurityException("currently only support certificate chains with length 4");
@@ -576,14 +575,13 @@ class AttestationProtocol {
                     throw new GeneralSecurityException("App version downgraded");
                 }
 
-                final Date now = new Date();
-                appendVerifiedInformation(teeEnforced, verified, now);
+                appendVerifiedInformation(teeEnforced, verified);
 
                 final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, verified_time_last = ? WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
                 update.bind(2, verified.osPatchLevel);
                 update.bind(3, verified.appVersion);
-                update.bind(4, now.getTime());
+                update.bind(4, now);
                 update.bind(5, fingerprint);
                 update.step();
                 update.dispose();
@@ -599,13 +597,12 @@ class AttestationProtocol {
                 insert.bind(6, verified.osVersion);
                 insert.bind(7, verified.osPatchLevel);
                 insert.bind(8, verified.appVersion);
-                final Date now = new Date();
-                insert.bind(9, now.getTime());
-                insert.bind(10, now.getTime());
+                insert.bind(9, now);
+                insert.bind(10, now);
                 insert.step();
                 insert.dispose();
 
-                appendVerifiedInformation(teeEnforced, verified, now);
+                appendVerifiedInformation(teeEnforced, verified);
             }
 
             final StringBuilder osEnforced = new StringBuilder();
@@ -638,11 +635,12 @@ class AttestationProtocol {
             final String teeEnforcedString = teeEnforced.toString();
             final String osEnforcedString = osEnforced.toString();
 
-            final SQLiteStatement insert = conn.prepare("INSERT into Attestations VALUES(NULL, ?, ?, ?, ?)");
+            final SQLiteStatement insert = conn.prepare("INSERT into Attestations VALUES(?, ?, ?, ?, ?)");
             insert.bind(1, fingerprint);
-            insert.bind(2, hasPersistentKey ? 1 : 0);
-            insert.bind(3, teeEnforcedString);
-            insert.bind(4, osEnforcedString);
+            insert.bind(2, now);
+            insert.bind(3, hasPersistentKey ? 1 : 0);
+            insert.bind(4, teeEnforcedString);
+            insert.bind(5, osEnforcedString);
             insert.step();
             insert.dispose();
 

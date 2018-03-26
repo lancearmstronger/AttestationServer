@@ -51,6 +51,10 @@ Pinned verified boot key: ${device.verifiedBootKey}
             devices.append(h3);
 
             for (const attestation of device.attestations) {
+                const time = document.createElement("p");
+                time.innerText = "Time: " + new Date(attestation.time);
+                devices.append(time);
+
                 const p = document.createElement("p");
                 if (attestation.strong) {
                     p.innerHTML = "<strong>Successfully performed strong paired verification and identity confirmation.</strong>";
@@ -81,7 +85,6 @@ Pinned verified boot key: ${device.verifiedBootKey}
             toggle.onclick = event => {
                 const target = event.target;
                 const cert = target.nextSibling;
-                console.log(target.nextSibling);
                 if (cert.style.display === "inline") {
                     target.innerText = target.innerText.replace("hide", "show");
                     cert.style.display = "none";

@@ -81,8 +81,8 @@ public class AttestationServer {
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
                     "fingerprint BLOB NOT NULL,\n" +
+                    "time BLOB NOT NULL,\n" +
                     "strong INTEGER NOT NULL,\n" +
                     "teeEnforced TEXT NOT NULL,\n" +
                     "osEnforced TEXT NOT NULL\n" +
@@ -280,15 +280,16 @@ public class AttestationServer {
                         device.add("verifiedTimeFirst", select.columnLong(8));
                         device.add("verifiedTimeLast", select.columnLong(9));
 
-                        final SQLiteStatement history = conn.prepare("SELECT strong, teeEnforced, osEnforced FROM Attestations where hex(fingerprint) = ? order by id");
+                        final SQLiteStatement history = conn.prepare("SELECT time, strong, teeEnforced, osEnforced FROM Attestations WHERE hex(fingerprint) = ? ORDER BY time");
                         history.bind(1, select.columnString(0));
 
                         final JsonArrayBuilder attestations = Json.createArrayBuilder();
                         while (history.step()) {
                             attestations.add(Json.createObjectBuilder()
-                                    .add("strong", history.columnInt(0) != 0)
-                                    .add("teeEnforced", history.columnString(1))
-                                    .add("osEnforced", history.columnString(2))
+                                    .add("time", history.columnLong(0))
+                                    .add("strong", history.columnInt(1) != 0)
+                                    .add("teeEnforced", history.columnString(2))
+                                    .add("osEnforced", history.columnString(3))
                                     .build());
                         }
                         device.add("attestations", attestations.build());
