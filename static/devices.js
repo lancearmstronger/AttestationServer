@@ -38,10 +38,12 @@ Pinned OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
 Pinned Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
 First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
 Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
-Pinned certificate 0: <button class="toggle">show</button><span class="cert"><br/>${device.pinnedCertificate0}</span><br/>
-Pinned certificate 1: <button class="toggle">show</button><span class="cert"><br/>${device.pinnedCertificate1}</span><br/>
-Pinned certificate 2: <button class="toggle">show</button><span class="cert"><br/>${device.pinnedCertificate2}</span><br/>
-Pinned verified boot key: ${device.verifiedBootKey}`
+<button class="toggle">show advanced information</button><span class="hidden"><br/>
+Pinned certificate 0: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate0}</span><br/>
+Pinned certificate 1: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate1}</span><br/>
+Pinned certificate 2: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate2}</span><br/>
+Pinned verified boot key: ${device.verifiedBootKey}
+</span>`
             devices.append(pinning);
 
             const h3 = document.createElement("h3");
@@ -75,15 +77,16 @@ Pinned verified boot key: ${device.verifiedBootKey}`
             }
         }
 
-        for (const cert of document.getElementsByClassName("toggle")) {
-            cert.onclick = event => {
+        for (const toggle of document.getElementsByClassName("toggle")) {
+            toggle.onclick = event => {
                 const target = event.target;
                 const cert = target.nextSibling;
+                console.log(target.nextSibling);
                 if (cert.style.display === "inline") {
-                    target.innerText = "show";
+                    target.innerText = target.innerText.replace("hide", "show");
                     cert.style.display = "none";
                 } else {
-                    target.innerText = "hide";
+                    target.innerText = target.innerText.replace("show", "hide");
                     cert.style.display = "inline";
                 }
             }
