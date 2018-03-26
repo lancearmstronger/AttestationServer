@@ -8,6 +8,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 import com.google.common.primitives.Bytes;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
+import com.google.zxing.WriterException;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -19,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -26,6 +33,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.DataFormatException;
@@ -44,6 +53,7 @@ public class AttestationServer {
     private static final File SAMPLES_DATABASE = new File("samples.db");
     private static final int VERIFY_INTERVAL = 3600;
     static final int BUSY_TIMEOUT = 10 * 1000;
+    private static final int QR_CODE_SIZE = 300;
     private static final String DEMO_ACCOUNT = "0000000000000000000000000000000000000000000000000000000000000000";
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
@@ -102,6 +112,7 @@ public class AttestationServer {
         }
 
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
+        server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/submit", new SubmitHandler());
         server.createContext("/verify", new VerifyHandler());
         server.createContext("/devices.json", new DevicesHandler());
@@ -235,6 +246,41 @@ public class AttestationServer {
                 output.close();
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+    private static void createQrCode(final byte[] contents, final OutputStream output) throws IOException {
+        final BitMatrix result;
+        try {
+            final QRCodeWriter writer = new QRCodeWriter();
+            final Map<EncodeHintType,Object> hints = new EnumMap<>(EncodeHintType.class);
+            hints.put(EncodeHintType.CHARACTER_SET, "ISO-8859-1");
+            try {
+                result = writer.encode(new String(contents, "ISO-8859-1"), BarcodeFormat.QR_CODE,
+                        QR_CODE_SIZE, QR_CODE_SIZE, hints);
+            } catch (UnsupportedEncodingException e) {
+                throw new RuntimeException("ISO-8859-1 not supported", e);
+            }
+        } catch (WriterException e) {
+            throw new RuntimeException(e);
+        }
+
+        MatrixToImageWriter.writeToStream(result, "png", output);
+    }
+
+    private static class AccountQrHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+                exchange.sendResponseHeaders(200, 0);
+                final OutputStream output = exchange.getResponseBody();
+                final String contents = "attestation.copperhead.co " + DEMO_ACCOUNT + " " + VERIFY_INTERVAL;
+                createQrCode(contents.getBytes(), output);
+                output.close();
+            } else {
+                exchange.getResponseHeaders().set("Allow", "GET");
                 exchange.sendResponseHeaders(405, -1);
             }
         }
