@@ -250,7 +250,7 @@ public class AttestationServer {
                     conn.setBusyTimeout(BUSY_TIMEOUT);
 
                     final JsonObjectBuilder device = Json.createObjectBuilder();
-                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), hex(pinned_certificate_0), hex(pinned_certificate_1), hex(pinned_certificate_2), hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices");
+                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), hex(pinned_certificate_0), hex(pinned_certificate_1), hex(pinned_certificate_2), hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices ORDER BY verified_time_first");
                     while (select.step()) {
                         device.add("fingerprint", select.columnString(0));
                         device.add("pinnedCertificate0", select.columnString(1));
