@@ -121,6 +121,7 @@ class AttestationProtocol {
     // downgrade protection for the OS version/patch (bootloader/TEE enforced) and app version (OS
     // enforced) by keeping them updated.
     static final byte PROTOCOL_VERSION = 1;
+    private static final byte PROTOCOL_VERSION_MINIMUM = 1;
     // can become longer in the future, but this is the minimum length
     private static final byte CHALLENGE_MESSAGE_LENGTH = 1 + CHALLENGE_LENGTH * 2;
     private static final int MAX_ENCODED_CHAIN_LENGTH = 3000;
@@ -656,6 +657,8 @@ class AttestationProtocol {
         final byte version = deserializer.get();
         if (version > PROTOCOL_VERSION) {
             throw new GeneralSecurityException("unsupported protocol version: " + version);
+        } else if (version < PROTOCOL_VERSION_MINIMUM) {
+            throw new GeneralSecurityException("App version on the device too old, update to 5 or later");
         }
 
         final short compressedChainLength = deserializer.getShort();
