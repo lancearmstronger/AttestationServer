@@ -42,9 +42,9 @@ OS: ${device.os}<br/>
 OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
 OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
 <button class="toggle">show advanced information</button><span class="hidden"><br/>
-Certificate 0: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate0}</span><br/>
-Certificate 1: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate1}</span><br/>
-Certificate 2: <button class="toggle">show</button><span class="hidden"><br/>${device.pinnedCertificate2}</span><br/>
+Certificate 0: <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate0}</pre><br/>
+Certificate 1: <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate1}</pre><br/>
+Certificate 2: <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate2}</pre><br/>
 Verified boot key: ${device.verifiedBootKey}
 </span>
 <h3>Information provided by the verified OS:</h3>

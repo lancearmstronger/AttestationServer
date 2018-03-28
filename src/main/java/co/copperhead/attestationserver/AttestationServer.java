@@ -33,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
+import java.util.Base64;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -286,6 +287,12 @@ public class AttestationServer {
         }
     }
 
+    private static String convertToPem(final byte[] derEncoded) {
+        return "-----BEGIN CERTIFICATE-----\n" +
+                new String(Base64.getMimeEncoder(64, "\n".getBytes()).encode(derEncoded)) +
+                "\n-----END CERTIFICATE-----";
+    }
+
     private static class DevicesHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
@@ -301,12 +308,12 @@ public class AttestationServer {
                     conn.setBusyTimeout(BUSY_TIMEOUT);
 
                     final JsonObjectBuilder device = Json.createObjectBuilder();
-                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), hex(pinned_certificate_0), hex(pinned_certificate_1), hex(pinned_certificate_2), hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices ORDER BY verified_time_first");
+                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices ORDER BY verified_time_first");
                     while (select.step()) {
                         device.add("fingerprint", select.columnString(0));
-                        device.add("pinnedCertificate0", select.columnString(1));
-                        device.add("pinnedCertificate1", select.columnString(2));
-                        device.add("pinnedCertificate2", select.columnString(3));
+                        device.add("pinnedCertificate0", convertToPem(select.columnBlob(1)));
+                        device.add("pinnedCertificate1", convertToPem(select.columnBlob(2)));
+                        device.add("pinnedCertificate2", convertToPem(select.columnBlob(3)));
                         final String verifiedBootKey = select.columnString(4);
                         device.add("verifiedBootKey", verifiedBootKey);
                         DeviceInfo info = fingerprintsCopperheadOS.get(verifiedBootKey);
