@@ -19,6 +19,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
+import org.bouncycastle.crypto.generators.SCrypt;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -33,6 +35,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.EnumMap;
 import java.util.Map;
@@ -107,9 +111,10 @@ public class AttestationServer {
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Accounts (\n" +
-                    "username TEXT NOT NULL,\n" +
-                    "passwordHash BLOB NOT NULL,\n" +
-                    "subscribeKey BLOB NOT NULL\n" +
+                    "username TEXT UNIQUE NOT NULL,\n" +
+                    "passwordHash BLOB UNIQUE NOT NULL,\n" +
+                    "passwordSalt BLOB UNIQUE NOT NULL,\n" +
+                    "subscribeKey BLOB UNIQUE NOT NULL\n" +
                     ")");
         } finally {
             attestationConn.dispose();
@@ -132,6 +137,53 @@ public class AttestationServer {
         server.createContext("/devices.json", new DevicesHandler());
         server.setExecutor(Executors.newCachedThreadPool());
         server.start();
+    }
+
+    private static byte[] hash(final byte[] password, final byte[] salt) {
+        return SCrypt.generate(password, salt, 32768, 8, 1, 32);
+    }
+
+    private static void createAccount(final String username, final String password) throws SQLiteException {
+        final SecureRandom random = new SecureRandom();
+        final byte[] passwordSalt = new byte[32];
+        random.nextBytes(passwordSalt);
+        final byte[] passwordHash = hash(password.getBytes(), passwordSalt);
+        final byte[] subscribeKey = new byte[32];
+        random.nextBytes(subscribeKey);
+
+        final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+        try {
+            conn.open();
+            conn.setBusyTimeout(BUSY_TIMEOUT);
+            final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts VALUES (?, ?, ?, ?)");
+            insert.bind(1, username);
+            insert.bind(2, passwordHash);
+            insert.bind(3, passwordSalt);
+            insert.bind(4, subscribeKey);
+            insert.step();
+            insert.dispose();
+        } finally {
+            conn.dispose();
+        }
+    }
+
+    private static void verifyLogin(final String username, final String password) throws GeneralSecurityException, SQLiteException {
+        final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+        try {
+            conn.openReadonly();
+            conn.setBusyTimeout(BUSY_TIMEOUT);
+            final SQLiteStatement select = conn.prepare("SELECT passwordHash, passwordSalt FROM Accounts WHERE username = ?");
+            select.bind(1, username);
+            select.step();
+            final byte[] passwordHash = select.columnBlob(0);
+            final byte[] passwordSalt = select.columnBlob(1);
+            select.dispose();
+            if (!MessageDigest.isEqual(hash(password.getBytes(), passwordSalt), passwordHash)) {
+                throw new GeneralSecurityException("invalid credentials");
+            }
+        } finally {
+            conn.dispose();
+        }
     }
 
     private static class SubmitHandler implements HttpHandler {
@@ -159,10 +211,10 @@ public class AttestationServer {
                 try {
                     conn.open();
                     conn.setBusyTimeout(BUSY_TIMEOUT);
-                    final SQLiteStatement st = conn.prepare("INSERT INTO Samples VALUES (?)");
-                    st.bind(1, sample.toByteArray());
-                    st.step();
-                    st.dispose();
+                    final SQLiteStatement insert = conn.prepare("INSERT INTO Samples VALUES (?)");
+                    insert.bind(1, sample.toByteArray());
+                    insert.step();
+                    insert.dispose();
                 } catch (final SQLiteException e) {
                     e.printStackTrace();
                     final String response = "Failed to save data.\n";
