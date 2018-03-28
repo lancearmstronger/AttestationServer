@@ -511,10 +511,8 @@ class AttestationProtocol {
             int pinnedOsVersion = Integer.MAX_VALUE;
             int pinnedOsPatchLevel = Integer.MAX_VALUE;
             int pinnedAppVersion = Integer.MAX_VALUE;
-            long verifiedTimeFirst = 0;
-            long verifiedTimeLast = 0;
             if (hasPersistentKey) {
-                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices WHERE fingerprint = ?");
+                final SQLiteStatement st = conn.prepare("SELECT pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, pinned_verified_boot_key, pinned_os_version, pinned_os_patch_level, pinned_app_version FROM Devices WHERE fingerprint = ?");
                 st.bind(1, fingerprint);
                 if (st.step()) {
                     pinnedCertificates[0] = st.columnBlob(0);
@@ -524,8 +522,6 @@ class AttestationProtocol {
                     pinnedOsVersion = st.columnInt(4);
                     pinnedOsPatchLevel = st.columnInt(5);
                     pinnedAppVersion = st.columnInt(6);
-                    verifiedTimeFirst = st.columnLong(7);
-                    verifiedTimeLast = st.columnLong(8);
                     st.dispose();
                 } else {
                     st.dispose();
