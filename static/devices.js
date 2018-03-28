@@ -36,6 +36,12 @@ const attestationAppVersionCodeOffset = 9;
 const devices = document.getElementById("devices");
 devices.style.display = "block";
 
+const deviceAdminStrings = {
+    0: "no",
+    1: "yes, with non-system apps",
+    2: "yes, but only system apps"
+};
+
 function formatOsVersion(osVersion) {
     const padded = ("000000" + osVersion).slice(-6);
     return parseInt(padded.substring(0, 2)) + "." +
@@ -91,7 +97,7 @@ Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset
 User profile secure: ${toYesNoString(device.userProfileSecure)}<br/>
 Enrolled fingerprints: ${toYesNoString(device.enrolledFingerprints)}<br/>
 Accessibility service(s) enabled: ${toYesNoString(device.accessibility)}<br/>
-Device administrator(s) enabled: ${device.deviceAdmin}<br/>
+Device administrator(s) enabled: ${deviceAdminStrings[device.deviceAdmin]}<br/>
 Android Debug Bridge enabled: ${toYesNoString(device.adbEnabled)}<br/>
 Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
 Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
