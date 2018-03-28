@@ -80,22 +80,22 @@ public class AttestationServer {
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Devices (\n" +
                     "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
-                    "pinned_certificate_0 BLOB NOT NULL,\n" +
-                    "pinned_certificate_1 BLOB NOT NULL,\n" +
-                    "pinned_certificate_2 BLOB NOT NULL,\n" +
-                    "pinned_verified_boot_key BLOB NOT NULL,\n" +
-                    "pinned_os_version INTEGER NOT NULL,\n" +
-                    "pinned_os_patch_level INTEGER NOT NULL,\n" +
-                    "pinned_app_version INTEGER NOT NULL,\n" +
-                    "user_profile_secure INTEGER NOT NULL,\n" +
-                    "enrolled_fingerprints INTEGER NOT NULL,\n" +
+                    "pinnedCertificate0 BLOB NOT NULL,\n" +
+                    "pinnedCertificate1 BLOB NOT NULL,\n" +
+                    "pinnedCertificate2 BLOB NOT NULL,\n" +
+                    "pinnedVerifiedBootKey BLOB NOT NULL,\n" +
+                    "pinnedOsVersion INTEGER NOT NULL,\n" +
+                    "pinnedOsPatchLevel INTEGER NOT NULL,\n" +
+                    "pinnedAppVersion INTEGER NOT NULL,\n" +
+                    "userProfileSecure INTEGER NOT NULL,\n" +
+                    "enrolledFingerprints INTEGER NOT NULL,\n" +
                     "accessibility INTEGER NOT NULL,\n" +
-                    "device_admin INTEGER NOT NULL,\n" +
-                    "adb_enabled INTEGER NOT NULL,\n" +
-                    "add_users_when_locked INTEGER NOT NULL,\n" +
-                    "deny_new_usb INTEGER NOT NULL,\n" +
-                    "verified_time_first INTEGER NOT NULL,\n" +
-                    "verified_time_last INTEGER NOT NULL\n" +
+                    "deviceAdmin INTEGER NOT NULL,\n" +
+                    "adbEnabled INTEGER NOT NULL,\n" +
+                    "addUsersWhenLocked INTEGER NOT NULL,\n" +
+                    "denyNewUsb INTEGER NOT NULL,\n" +
+                    "verifiedTimeFirst INTEGER NOT NULL,\n" +
+                    "verifiedTimeLast INTEGER NOT NULL\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
@@ -310,7 +310,7 @@ public class AttestationServer {
                     conn.setBusyTimeout(BUSY_TIMEOUT);
 
                     final JsonObjectBuilder device = Json.createObjectBuilder();
-                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, user_profile_secure, enrolled_fingerprints, accessibility, device_admin, adb_enabled, add_users_when_locked, deny_new_usb, verified_time_first, verified_time_last FROM Devices ORDER BY verified_time_first");
+                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, verifiedTimeFirst, verifiedTimeLast FROM Devices ORDER BY verifiedTimeFirst");
                     while (select.step()) {
                         device.add("fingerprint", select.columnString(0));
                         device.add("pinnedCertificate0", convertToPem(select.columnBlob(1)));
