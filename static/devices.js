@@ -97,13 +97,15 @@ Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
 Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
 <h3>Attestation history</h3>
 First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
-Last verified time: ${new Date(device.verifiedTimeLast)}<br/>`
+Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
+<button class="toggle">show detailed history</button><div id="history-${device.fingerprint}" class="hidden"></div>`
             devices.append(info);
 
+            const history = document.getElementById("history-" + device.fingerprint);
             for (const attestation of device.attestations) {
                 const time = document.createElement("h4");
                 time.innerText = new Date(attestation.time);
-                devices.append(time);
+                history.append(time);
 
                 const p = document.createElement("p");
                 if (attestation.strong) {
@@ -111,23 +113,23 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>`
                 } else {
                     p.innerHTML = "<strong>Successfully performed basic initial verification and pairing.</strong>";
                 }
-                devices.append(p);
+                history.append(p);
 
                 const teeEnforcedIntro = document.createElement("p");
                 teeEnforcedIntro.innerHTML = "<h5>Verified device information (constants omitted):</h5>";
-                devices.append(teeEnforcedIntro);
+                history.append(teeEnforcedIntro);
 
                 const teeEnforced = document.createElement("p");
                 teeEnforced.innerText = attestation.teeEnforced;
-                devices.append(teeEnforced);
+                history.append(teeEnforced);
 
                 const osEnforcedIntro = document.createElement("p");
                 osEnforcedIntro.innerHTML = "<h5>Information provided by the verified OS:</h5>";
-                devices.append(osEnforcedIntro);
+                history.append(osEnforcedIntro);
 
                 const osEnforced = document.createElement("p");
                 osEnforced.innerText = attestation.osEnforced;
-                devices.append(osEnforced);
+                history.append(osEnforced);
             }
         }
 
