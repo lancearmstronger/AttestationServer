@@ -9,8 +9,12 @@ body {
     padding: 0;
 }
 
+pre, .fingerprint {
+    font-family: "Roboto Mono", monospace;
+}
+
 pre {
-    font: 0.8em "Roboto Mono", monospace;
+    font-size: 0.8em;
 }
 
 nav ul {

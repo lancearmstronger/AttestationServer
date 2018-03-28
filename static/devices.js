@@ -79,7 +79,7 @@ fetch("/devices.json")
             }
 
             const info = document.createElement("p");
-            info.innerHTML = `<h2>${fingerprint}</h2>
+            info.innerHTML = `<h2 class="fingerprint">${fingerprint}</h2>
 <h3>Verified device information:</h3>
 Device: ${device.name}<br/>
 OS: ${device.os}<br/>
@@ -90,7 +90,7 @@ Certificate 0 (persistent Auditor key): <button class="toggle">show</button><pre
 Certificate 1 (batch): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate1}</pre><br/>
 Certificate 2 (intermediate): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate2}</pre><br/>
 Certificate 3 (root): <button class="toggle">show</button><pre class="hidden"><br/>${attestationRoot}</pre><br/>
-Verified boot key: ${device.verifiedBootKey}
+Verified boot key: <span class="fingerprint">${device.verifiedBootKey}</span>
 </span>
 <h3>Information provided by the verified OS:</h3>
 Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
