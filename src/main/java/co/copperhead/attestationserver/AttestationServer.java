@@ -87,6 +87,13 @@ public class AttestationServer {
                     "pinned_os_version INTEGER NOT NULL,\n" +
                     "pinned_os_patch_level INTEGER NOT NULL,\n" +
                     "pinned_app_version INTEGER NOT NULL,\n" +
+                    "user_profile_secure INTEGER NOT NULL,\n" +
+                    "enrolled_fingerprints INTEGER NOT NULL,\n" +
+                    "accessibility INTEGER NOT NULL,\n" +
+                    "device_admin INTEGER NOT NULL,\n" +
+                    "adb_enabled INTEGER NOT NULL,\n" +
+                    "add_users_when_locked INTEGER NOT NULL,\n" +
+                    "deny_new_usb INTEGER NOT NULL,\n" +
                     "verified_time_first INTEGER NOT NULL,\n" +
                     "verified_time_last INTEGER NOT NULL\n" +
                     ")");
@@ -308,7 +315,7 @@ public class AttestationServer {
                     conn.setBusyTimeout(BUSY_TIMEOUT);
 
                     final JsonObjectBuilder device = Json.createObjectBuilder();
-                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, verified_time_first, verified_time_last FROM Devices ORDER BY verified_time_first");
+                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinned_certificate_0, pinned_certificate_1, pinned_certificate_2, hex(pinned_verified_boot_key), pinned_os_version, pinned_os_patch_level, pinned_app_version, user_profile_secure, enrolled_fingerprints, accessibility, device_admin, adb_enabled, add_users_when_locked, deny_new_usb, verified_time_first, verified_time_last FROM Devices ORDER BY verified_time_first");
                     while (select.step()) {
                         device.add("fingerprint", select.columnString(0));
                         device.add("pinnedCertificate0", convertToPem(select.columnBlob(1)));
@@ -330,8 +337,15 @@ public class AttestationServer {
                         device.add("pinnedOsVersion", select.columnInt(5));
                         device.add("pinnedOsPatchLevel", select.columnInt(6));
                         device.add("pinnedAppVersion", select.columnInt(7));
-                        device.add("verifiedTimeFirst", select.columnLong(8));
-                        device.add("verifiedTimeLast", select.columnLong(9));
+                        device.add("userProfileSecure", select.columnInt(8));
+                        device.add("enrolledFingerprints", select.columnInt(9));
+                        device.add("accessibility", select.columnInt(10));
+                        device.add("deviceAdmin", select.columnInt(11));
+                        device.add("adbEnabled", select.columnInt(12));
+                        device.add("addUsersWhenLocked", select.columnInt(13));
+                        device.add("denyNewUsb", select.columnInt(14));
+                        device.add("verifiedTimeFirst", select.columnLong(15));
+                        device.add("verifiedTimeLast", select.columnLong(16));
 
                         final SQLiteStatement history = conn.prepare("SELECT time, strong, teeEnforced, osEnforced FROM Attestations WHERE hex(fingerprint) = ? ORDER BY time");
                         history.bind(1, select.columnString(0));

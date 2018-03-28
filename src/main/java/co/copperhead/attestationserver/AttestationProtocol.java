@@ -572,18 +572,25 @@ class AttestationProtocol {
 
                 appendVerifiedInformation(teeEnforced, verified);
 
-                final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, verified_time_last = ? WHERE fingerprint = ?");
+                final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinned_os_version = ?, pinned_os_patch_level = ?, pinned_app_version = ?, user_profile_secure = ?, enrolled_fingerprints = ?, accessibility = ?, device_admin = ?, adb_enabled = ?, add_users_when_locked = ?, deny_new_usb = ?, verified_time_last = ? WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
                 update.bind(2, verified.osPatchLevel);
                 update.bind(3, verified.appVersion);
-                update.bind(4, now);
-                update.bind(5, fingerprint);
+                update.bind(4, userProfileSecure ? 1 : 0);
+                update.bind(5, enrolledFingerprints ? 1 : 0);
+                update.bind(6, accessibility ? 1 : 0);
+                update.bind(7, deviceAdmin ? (deviceAdminNonSystem ? 2 : 1) : 0);
+                update.bind(8, adbEnabled ? 1 : 0);
+                update.bind(9, addUsersWhenLocked ? 1 : 0);
+                update.bind(10, denyNewUsb ? 1 : 0);
+                update.bind(11, now);
+                update.bind(12, fingerprint);
                 update.step();
                 update.dispose();
              } else {
                 verifySignature(attestationCertificates[0].getPublicKey(), signedMessage, signature);
 
-                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 insert.bind(1, fingerprint);
                 insert.bind(2, attestationCertificates[0].getEncoded());
                 insert.bind(3, attestationCertificates[1].getEncoded());
@@ -592,8 +599,15 @@ class AttestationProtocol {
                 insert.bind(6, verified.osVersion);
                 insert.bind(7, verified.osPatchLevel);
                 insert.bind(8, verified.appVersion);
-                insert.bind(9, now);
-                insert.bind(10, now);
+                insert.bind(9, userProfileSecure ? 1 : 0);
+                insert.bind(10, enrolledFingerprints ? 1 : 0);
+                insert.bind(11, accessibility ? 1 : 0);
+                insert.bind(12, deviceAdmin ? (deviceAdminNonSystem ? 2 : 1) : 0);
+                insert.bind(13, adbEnabled ? 1 : 0);
+                insert.bind(14, addUsersWhenLocked ? 1 : 0);
+                insert.bind(15, denyNewUsb ? 1 : 0);
+                insert.bind(16, now);
+                insert.bind(17, now);
                 insert.step();
                 insert.dispose();
 

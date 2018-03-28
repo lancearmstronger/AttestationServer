@@ -48,6 +48,13 @@ function formatOsPatchLevel(osPatchLevel) {
     return string.substring(0, 4) + "-" + string.substring(4, 6);
 }
 
+function toYesNoString(value) {
+    if (value === undefined) {
+        return "undefined";
+    }
+    return value ? "yes" : "no";
+}
+
 fetch("/devices.json")
     .then(response => {
         if (!response.ok) {
@@ -80,7 +87,14 @@ Certificate 3 (root): <button class="toggle">show</button><pre class="hidden"><b
 Verified boot key: ${device.verifiedBootKey}
 </span>
 <h3>Information provided by the verified OS:</h3>
-Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}
+Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
+User profile secure: ${toYesNoString(device.userProfileSecure)}<br/>
+Enrolled fingerprints: ${toYesNoString(device.enrolledFingerprints)}<br/>
+Accessibility service(s) enabled: ${toYesNoString(device.accessibility)}<br/>
+Device administrator(s) enabled: ${device.deviceAdmin}<br/>
+Android Debug Bridge enabled: ${toYesNoString(device.adbEnabled)}<br/>
+Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
+Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
 <h3>Attestation history</h3>
 First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
 Last verified time: ${new Date(device.verifiedTimeLast)}<br/>`
