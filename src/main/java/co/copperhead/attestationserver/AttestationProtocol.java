@@ -489,7 +489,7 @@ class AttestationProtocol {
         return value ? "yes" : "no";
     }
 
-    private static VerificationResult verify(final byte[] fingerprint,
+    private static void verify(final byte[] fingerprint,
             final Cache<ByteBuffer, Boolean> pendingChallenges, final ByteBuffer signedMessage, final byte[] signature,
             final Certificate[] attestationCertificates, final boolean userProfileSecure,
             final boolean accessibility, final boolean deviceAdmin,
@@ -652,8 +652,6 @@ class AttestationProtocol {
             insert.bind(5, osEnforcedString);
             insert.step();
             insert.dispose();
-
-            return new VerificationResult(hasPersistentKey, teeEnforcedString, osEnforcedString);
         } catch (final SQLiteException e) {
             throw new IOException(e);
         } finally {
@@ -661,7 +659,7 @@ class AttestationProtocol {
         }
     }
 
-    static VerificationResult verifySerialized(final byte[] attestationResult,
+    static void verifySerialized(final byte[] attestationResult,
             final Cache<ByteBuffer, Boolean> pendingChallenges) throws DataFormatException, GeneralSecurityException, IOException {
         final ByteBuffer deserializer = ByteBuffer.wrap(attestationResult);
         final byte version = deserializer.get();
@@ -726,7 +724,7 @@ class AttestationProtocol {
         deserializer.rewind();
         deserializer.limit(deserializer.capacity() - signature.length);
 
-        return verify(fingerprint, pendingChallenges, deserializer.asReadOnlyBuffer(), signature,
+        verify(fingerprint, pendingChallenges, deserializer.asReadOnlyBuffer(), signature,
                 certificates, userProfileSecure, accessibility, deviceAdmin, deviceAdminNonSystem,
                 adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb);
     }

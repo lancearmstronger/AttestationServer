@@ -225,18 +225,7 @@ public class AttestationServer {
                 final byte[] attestationResult = attestation.toByteArray();
 
                 try {
-                    final AttestationProtocol.VerificationResult result =
-                            AttestationProtocol.verifySerialized(attestationResult, pendingChallenges);
-
-                    if (result.strong) {
-                        System.err.println("Successfully performed strong paired verification and identity confirmation.\n");
-                    } else {
-                        System.err.println("Successfully performed basic initial verification and pairing.\n");
-                    }
-                    System.err.println("Verified device information:\n");
-                    System.err.write(result.teeEnforced.getBytes());
-                    System.err.println("\nInformation provided by the verified OS:\n");
-                    System.err.write(result.osEnforced.getBytes());
+                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges);
                 } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
                     e.printStackTrace();
                     final String response = "Error\n";
