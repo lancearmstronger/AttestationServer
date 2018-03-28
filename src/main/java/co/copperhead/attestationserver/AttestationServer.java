@@ -105,6 +105,11 @@ public class AttestationServer {
                     "teeEnforced TEXT NOT NULL,\n" +
                     "osEnforced TEXT NOT NULL\n" +
                     ")");
+            attestationConn.exec(
+                    "CREATE TABLE IF NOT EXISTS Accounts (\n" +
+                    "username TEXT NOT NULL,\n" +
+                    "passwordHash BLOB NOT NULL\n" +
+                    ")");
         } finally {
             attestationConn.dispose();
         }
