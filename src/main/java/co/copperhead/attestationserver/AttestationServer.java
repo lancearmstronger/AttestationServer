@@ -147,9 +147,9 @@ public class AttestationServer {
                     if (sample.size() > 64 * 1024) {
                         final String response = "Sample too large\n";
                         exchange.sendResponseHeaders(400, response.length());
-                        final OutputStream output = exchange.getResponseBody();
-                        output.write(response.getBytes());
-                        output.close();
+                        try (final OutputStream output = exchange.getResponseBody()) {
+                            output.write(response.getBytes());
+                        }
                         return;
                     }
                 }
@@ -166,9 +166,9 @@ public class AttestationServer {
                     e.printStackTrace();
                     final String response = "Failed to save data.\n";
                     exchange.sendResponseHeaders(500, response.length());
-                    final OutputStream output = exchange.getResponseBody();
-                    output.write(response.getBytes());
-                    output.close();
+                    try (final OutputStream output = exchange.getResponseBody()) {
+                        output.write(response.getBytes());
+                    }
                     return;
                 } finally {
                     conn.dispose();
@@ -196,17 +196,17 @@ public class AttestationServer {
                                 challengeIndex, challenge);
 
                 exchange.sendResponseHeaders(200, challengeMessage.length);
-                final OutputStream output = exchange.getResponseBody();
-                output.write(challengeMessage);
-                output.close();
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    output.write(challengeMessage);
+                }
             } else if (method.equalsIgnoreCase("POST")) {
                 final String account = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
                 if (!DEMO_ACCOUNT.equals(account)) {
                     final String response = "invalid account";
                     exchange.sendResponseHeaders(403, response.length());
-                    final OutputStream output = exchange.getResponseBody();
-                    output.write(response.getBytes());
-                    output.close();
+                    try (final OutputStream output = exchange.getResponseBody()) {
+                        output.write(response.getBytes());
+                    }
                     return;
                 }
 
@@ -220,9 +220,9 @@ public class AttestationServer {
                     if (attestation.size() > AttestationProtocol.MAX_MESSAGE_SIZE) {
                         final String response = "Attestation too large";
                         exchange.sendResponseHeaders(400, response.length());
-                        final OutputStream output = exchange.getResponseBody();
-                        output.write(response.getBytes());
-                        output.close();
+                        try (final OutputStream output = exchange.getResponseBody()) {
+                            output.write(response.getBytes());
+                        }
                         return;
                     }
                 }
@@ -235,17 +235,17 @@ public class AttestationServer {
                     e.printStackTrace();
                     final String response = "Error\n";
                     exchange.sendResponseHeaders(400, response.length());
-                    final OutputStream output = exchange.getResponseBody();
-                    output.write(response.getBytes());
-                    output.close();
+                    try (final OutputStream output = exchange.getResponseBody()) {
+                        output.write(response.getBytes());
+                    }
                     return;
                 }
 
                 final String response = Integer.toString(VERIFY_INTERVAL);
                 exchange.sendResponseHeaders(200, response.length());
-                final OutputStream output = exchange.getResponseBody();
-                output.write(response.getBytes());
-                output.close();
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    output.write(response.getBytes());
+                }
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
                 exchange.sendResponseHeaders(405, -1);
@@ -278,10 +278,10 @@ public class AttestationServer {
             if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
                 exchange.getResponseHeaders().set("Cache-Control", "private, max-age=1800");
                 exchange.sendResponseHeaders(200, 0);
-                final OutputStream output = exchange.getResponseBody();
-                final String contents = "attestation.copperhead.co " + DEMO_ACCOUNT + " " + VERIFY_INTERVAL;
-                createQrCode(contents.getBytes(), output);
-                output.close();
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    final String contents = "attestation.copperhead.co " + DEMO_ACCOUNT + " " + VERIFY_INTERVAL;
+                    createQrCode(contents.getBytes(), output);
+                }
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET");
                 exchange.sendResponseHeaders(405, -1);
@@ -299,10 +299,6 @@ public class AttestationServer {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-                exchange.sendResponseHeaders(200, 0);
-                final OutputStream output = exchange.getResponseBody();
-                final String response = "Devices\n";
-
                 final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                 final JsonArrayBuilder devices = Json.createArrayBuilder();
                 try {
@@ -368,8 +364,10 @@ public class AttestationServer {
                     conn.dispose();
                 }
 
-                output.write(devices.build().toString().getBytes());
-                output.close();
+                exchange.sendResponseHeaders(200, 0);
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    output.write(devices.build().toString().getBytes());
+                }
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET");
                 exchange.sendResponseHeaders(405, -1);
