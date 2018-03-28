@@ -271,6 +271,7 @@ public class AttestationServer {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+                exchange.getResponseHeaders().set("Cache-Control", "private, max-age=1800");
                 exchange.sendResponseHeaders(200, 0);
                 final OutputStream output = exchange.getResponseBody();
                 final String contents = "attestation.copperhead.co " + DEMO_ACCOUNT + " " + VERIFY_INTERVAL;
