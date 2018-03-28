@@ -108,7 +108,8 @@ public class AttestationServer {
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Accounts (\n" +
                     "username TEXT NOT NULL,\n" +
-                    "passwordHash BLOB NOT NULL\n" +
+                    "passwordHash BLOB NOT NULL,\n" +
+                    "subscribeKey BLOB NOT NULL\n" +
                     ")");
         } finally {
             attestationConn.dispose();
