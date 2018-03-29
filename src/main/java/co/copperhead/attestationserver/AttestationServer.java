@@ -138,6 +138,7 @@ public class AttestationServer {
                     "verifiedTimeLast INTEGER NOT NULL,\n" +
                     "userId INTEGER REFERENCES Accounts (userId)\n" +
                     ")");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS deviceUserId ON Devices (userId)");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
                     "fingerprint BLOB NOT NULL REFERENCES Devices (fingerprint),\n" +
