@@ -75,15 +75,20 @@ public class AttestationServer {
             .build();
     private static byte[] challengeIndex;
 
-    static void open(final SQLiteConnection conn) throws SQLiteException {
-        conn.open();
+    static void open(final SQLiteConnection conn, final boolean readOnly) throws SQLiteException {
+        if (readOnly) {
+            conn.openReadonly();
+        } else {
+            conn.open();
+        }
+        conn.setBusyTimeout(BUSY_TIMEOUT);
         conn.exec("PRAGMA foreign_keys=ON");
     }
 
     public static void main(final String[] args) throws Exception {
         final SQLiteConnection samplesConn = new SQLiteConnection(SAMPLES_DATABASE);
         try {
-            open(samplesConn);
+            open(samplesConn, false);
             samplesConn.exec("PRAGMA journal_mode=WAL");
             samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (sample TEXT NOT NULL)");
         } finally {
@@ -92,7 +97,7 @@ public class AttestationServer {
 
         final SQLiteConnection attestationConn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
-            open(attestationConn);
+            open(attestationConn, false);
             attestationConn.exec("PRAGMA journal_mode=WAL");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Devices (\n" +
@@ -189,8 +194,7 @@ public class AttestationServer {
 
                 final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                 try {
-                    open(conn);
-                    conn.setBusyTimeout(BUSY_TIMEOUT);
+                    open(conn, false);
                     final SQLiteStatement insert = conn.prepare("INSERT INTO Samples VALUES (?)");
                     insert.bind(1, sample.toByteArray());
                     insert.step();
@@ -236,8 +240,7 @@ public class AttestationServer {
 
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
-            open(conn);
-            conn.setBusyTimeout(BUSY_TIMEOUT);
+            open(conn, false);
             final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts " +
                     "(username, passwordHash, passwordSalt, subscribeKey, creationTime) " +
                     "VALUES (?, ?, ?, ?, ?)");
@@ -268,8 +271,7 @@ public class AttestationServer {
     private static Session login(final String username, final String password) throws GeneralSecurityException, SQLiteException {
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
-            open(conn);
-            conn.setBusyTimeout(BUSY_TIMEOUT);
+            open(conn, false);
             final SQLiteStatement select = conn.prepare("SELECT userId, passwordHash, passwordSalt FROM Accounts WHERE username = ?");
             select.bind(1, username);
             select.step();
@@ -411,8 +413,7 @@ public class AttestationServer {
 
                         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                         try {
-                            conn.openReadonly();
-                            conn.setBusyTimeout(BUSY_TIMEOUT);
+                            open(conn, true);
 
                             final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, expiryTime, username FROM Sessions INNER JOIN Accounts on Accounts.userId = Sessions.userId WHERE Sessions.userId = ?");
                             select.bind(1, userId);
@@ -575,8 +576,7 @@ public class AttestationServer {
                 final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                 final JsonArrayBuilder devices = Json.createArrayBuilder();
                 try {
-                    conn.openReadonly();
-                    conn.setBusyTimeout(BUSY_TIMEOUT);
+                    open(conn, true);
 
                     final JsonObjectBuilder device = Json.createObjectBuilder();
                     final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, verifiedTimeFirst, verifiedTimeLast FROM Devices ORDER BY verifiedTimeFirst");

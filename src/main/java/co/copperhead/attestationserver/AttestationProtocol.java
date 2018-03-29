@@ -503,8 +503,7 @@ class AttestationProtocol {
 
         final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
         try {
-            AttestationServer.open(conn);
-            conn.setBusyTimeout(AttestationServer.BUSY_TIMEOUT);
+            AttestationServer.open(conn, false);
 
             final byte[][] pinnedCertificates = new byte[3][];
             byte[] pinnedVerifiedBootKey = null;
