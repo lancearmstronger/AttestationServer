@@ -662,7 +662,7 @@ class AttestationProtocol {
     }
 
     static void verifySerialized(final byte[] attestationResult,
-            final Cache<ByteBuffer, Boolean> pendingChallenges, final int userId) throws DataFormatException, GeneralSecurityException, IOException {
+            final Cache<ByteBuffer, Boolean> pendingChallenges, final long userId) throws DataFormatException, GeneralSecurityException, IOException {
         final ByteBuffer deserializer = ByteBuffer.wrap(attestationResult);
         final byte version = deserializer.get();
         if (version > PROTOCOL_VERSION) {

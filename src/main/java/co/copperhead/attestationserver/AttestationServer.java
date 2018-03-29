@@ -498,14 +498,32 @@ public class AttestationServer {
                     output.write(challengeMessage);
                 }
             } else if (method.equalsIgnoreCase("POST")) {
-                final String account = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
-                if (!DEMO_SUBSCRIBE_KEY.equals(account)) {
-                    final byte[] response = "invalid subscribe key".getBytes();
-                    exchange.sendResponseHeaders(403, response.length);
-                    try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(response);
+                final String subscribeKey = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
+                final long userId;
+                if (!DEMO_SUBSCRIBE_KEY.equals(subscribeKey)) {
+                    final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
+
+                    final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                    try {
+                        open(conn, true);
+
+                        final SQLiteStatement select = conn.prepare("SELECT userId FROM Accounts WHERE subscribeKey = ?");
+                        select.bind(1, subscribeKeyDecoded);
+                        select.step();
+                        userId = select.columnLong(0);
+                        select.dispose();
+                    } catch (final SQLiteException e) {
+                        final byte[] response = "invalid subscribe key".getBytes();
+                        exchange.sendResponseHeaders(403, response.length);
+                        try (final OutputStream output = exchange.getResponseBody()) {
+                            output.write(response);
+                        }
+                        return;
+                    } finally {
+                        conn.dispose();
                     }
-                    return;
+                } else {
+                    userId = 0;
                 }
 
                 final InputStream input = exchange.getRequestBody();
@@ -528,7 +546,7 @@ public class AttestationServer {
                 final byte[] attestationResult = attestation.toByteArray();
 
                 try {
-                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, 0);
+                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, userId);
                 } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
                     e.printStackTrace();
                     final byte[] response = "Error\n".getBytes();
