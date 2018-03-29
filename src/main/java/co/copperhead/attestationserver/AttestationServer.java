@@ -162,6 +162,55 @@ public class AttestationServer {
         server.start();
     }
 
+    private static class SubmitHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                final InputStream input = exchange.getRequestBody();
+
+                final ByteArrayOutputStream sample = new ByteArrayOutputStream();
+                final byte[] buffer = new byte[4096];
+                for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
+                    sample.write(buffer, 0, read);
+
+                    if (sample.size() > 64 * 1024) {
+                        final byte[] response = "Sample too large\n".getBytes();
+                        exchange.sendResponseHeaders(400, response.length);
+                        try (final OutputStream output = exchange.getResponseBody()) {
+                            output.write(response);
+                        }
+                        return;
+                    }
+                }
+
+                final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
+                try {
+                    open(conn);
+                    conn.setBusyTimeout(BUSY_TIMEOUT);
+                    final SQLiteStatement insert = conn.prepare("INSERT INTO Samples VALUES (?)");
+                    insert.bind(1, sample.toByteArray());
+                    insert.step();
+                    insert.dispose();
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                    final byte[] response = "Failed to save data.\n".getBytes();
+                    exchange.sendResponseHeaders(500, response.length);
+                    try (final OutputStream output = exchange.getResponseBody()) {
+                        output.write(response);
+                    }
+                    return;
+                } finally {
+                    conn.dispose();
+                }
+
+                exchange.sendResponseHeaders(200, -1);
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
     private static byte[] hash(final byte[] password, final byte[] salt) {
         return SCrypt.generate(password, salt, 32768, 8, 1, 32);
     }
@@ -321,55 +370,6 @@ public class AttestationServer {
                 try (final OutputStream output = exchange.getResponseBody()) {
                     output.write(requestToken);
                 }
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
-            }
-        }
-    }
-
-    private static class SubmitHandler implements HttpHandler {
-        @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final InputStream input = exchange.getRequestBody();
-
-                final ByteArrayOutputStream sample = new ByteArrayOutputStream();
-                final byte[] buffer = new byte[4096];
-                for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
-                    sample.write(buffer, 0, read);
-
-                    if (sample.size() > 64 * 1024) {
-                        final byte[] response = "Sample too large\n".getBytes();
-                        exchange.sendResponseHeaders(400, response.length);
-                        try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(response);
-                        }
-                        return;
-                    }
-                }
-
-                final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
-                try {
-                    open(conn);
-                    conn.setBusyTimeout(BUSY_TIMEOUT);
-                    final SQLiteStatement insert = conn.prepare("INSERT INTO Samples VALUES (?)");
-                    insert.bind(1, sample.toByteArray());
-                    insert.step();
-                    insert.dispose();
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    final byte[] response = "Failed to save data.\n".getBytes();
-                    exchange.sendResponseHeaders(500, response.length);
-                    try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(response);
-                    }
-                    return;
-                } finally {
-                    conn.dispose();
-                }
-
-                exchange.sendResponseHeaders(200, -1);
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
