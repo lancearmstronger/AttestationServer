@@ -64,7 +64,7 @@ public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
     private static final int VERIFY_INTERVAL = 3600;
-    static final int BUSY_TIMEOUT = 10 * 1000;
+    private static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
     private static final String DEMO_SUBSCRIBE_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
     private static final long SESSION_LENGTH = 1000 * 60 * 60 * 48;
