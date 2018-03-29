@@ -204,14 +204,11 @@ public class AttestationServer {
         final long userId;
         final byte[] cookieToken;
         final byte[] requestToken;
-        final long expiryTime;
 
-        Session(final long userId, final byte[] cookieToken, final byte[] requestToken,
-                final long expiryTime) {
+        Session(final long userId, final byte[] cookieToken, final byte[] requestToken) {
             this.userId = userId;
             this.cookieToken = cookieToken;
             this.requestToken = requestToken;
-            this.expiryTime = expiryTime;
         }
     }
 
@@ -242,18 +239,17 @@ public class AttestationServer {
             random.nextBytes(cookieToken);
             final byte[] requestToken = new byte[32];
             random.nextBytes(requestToken);
-            final long expiryTime = now + SESSION_LENGTH;
 
             final SQLiteStatement insert = conn.prepare("INSERT INTO Sessions " +
                     "(userId, cookieToken, requestToken, expiryTime) VALUES (?, ?, ?, ?)");
             insert.bind(1, userId);
             insert.bind(2, cookieToken);
             insert.bind(3, requestToken);
-            insert.bind(4, expiryTime);
+            insert.bind(4, now + SESSION_LENGTH);
             insert.step();
             insert.dispose();
 
-            return new Session(userId, cookieToken, requestToken, expiryTime);
+            return new Session(userId, cookieToken, requestToken);
         } finally {
             conn.dispose();
         }
