@@ -7,6 +7,7 @@ import com.almworks.sqlite4java.SQLiteStatement;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Bytes;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
@@ -44,9 +45,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.DataFormatException;
 
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonArrayBuilder;
 import javax.json.Json;
+import javax.json.JsonArrayBuilder;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonReader;
+import javax.json.JsonException;
 
 import attestationserver.AttestationProtocol.DeviceInfo;
 
@@ -148,8 +152,10 @@ public class AttestationServer {
         }
 
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
-        server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/submit", new SubmitHandler());
+        server.createContext("/create_account", new CreateAccountHandler());
+        server.createContext("/login", new LoginHandler());
+        server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/verify", new VerifyHandler());
         server.createContext("/devices.json", new DevicesHandler());
         server.setExecutor(Executors.newCachedThreadPool());
@@ -160,7 +166,14 @@ public class AttestationServer {
         return SCrypt.generate(password, salt, 32768, 8, 1, 32);
     }
 
-    private static void createAccount(final String username, final String password) throws SQLiteException {
+    private static void createAccount(final String username, final String password) throws GeneralSecurityException, SQLiteException {
+        if (!CharMatcher.ascii().matchesAllOf(username)) {
+            throw new GeneralSecurityException("invalid username");
+        }
+        if (password.length() < 8) {
+            throw new GeneralSecurityException("invalid password");
+        }
+
         final SecureRandom random = new SecureRandom();
         final byte[] passwordSalt = new byte[32];
         random.nextBytes(passwordSalt);
@@ -246,6 +259,79 @@ public class AttestationServer {
         }
     }
 
+    private static class CreateAccountHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                final String username;
+                final String password;
+                try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                    final JsonObject object = reader.readObject();
+                    username = object.getString("username");
+                    password = object.getString("password");
+                } catch (final ClassCastException | JsonException | NullPointerException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                }
+
+                try {
+                    createAccount(username, password);
+                } catch (final GeneralSecurityException | SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                }
+                exchange.sendResponseHeaders(200, -1);
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+    private static class LoginHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                final String username;
+                final String password;
+                try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                    final JsonObject object = reader.readObject();
+                    username = object.getString("username");
+                    password = object.getString("password");
+                } catch (final ClassCastException | JsonException | NullPointerException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                }
+
+                final Session session;
+                try {
+                    session = login(username, password);
+                } catch (final GeneralSecurityException | SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                }
+
+                final Base64.Encoder encoder = Base64.getEncoder();
+                final byte[] requestToken = encoder.encode(session.requestToken);
+                exchange.getResponseHeaders().set("Set-Cookie",
+                        String.format("__Host-session=%d|%s; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=%d",
+                            session.userId, new String(encoder.encode(session.cookieToken)),
+                            SESSION_LENGTH / 1000));
+                exchange.sendResponseHeaders(200, requestToken.length);
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    output.write(requestToken);
+                }
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
     private static class SubmitHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
@@ -258,10 +344,10 @@ public class AttestationServer {
                     sample.write(buffer, 0, read);
 
                     if (sample.size() > 64 * 1024) {
-                        final String response = "Sample too large\n";
-                        exchange.sendResponseHeaders(400, response.length());
+                        final byte[] response = "Sample too large\n".getBytes();
+                        exchange.sendResponseHeaders(400, response.length);
                         try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(response.getBytes());
+                            output.write(response);
                         }
                         return;
                     }
@@ -277,10 +363,10 @@ public class AttestationServer {
                     insert.dispose();
                 } catch (final SQLiteException e) {
                     e.printStackTrace();
-                    final String response = "Failed to save data.\n";
-                    exchange.sendResponseHeaders(500, response.length());
+                    final byte[] response = "Failed to save data.\n".getBytes();
+                    exchange.sendResponseHeaders(500, response.length);
                     try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(response.getBytes());
+                        output.write(response);
                     }
                     return;
                 } finally {
@@ -315,10 +401,10 @@ public class AttestationServer {
             } else if (method.equalsIgnoreCase("POST")) {
                 final String account = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
                 if (!DEMO_SUBSCRIBE_KEY.equals(account)) {
-                    final String response = "invalid subscribe key";
-                    exchange.sendResponseHeaders(403, response.length());
+                    final byte[] response = "invalid subscribe key".getBytes();
+                    exchange.sendResponseHeaders(403, response.length);
                     try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(response.getBytes());
+                        output.write(response);
                     }
                     return;
                 }
@@ -331,10 +417,10 @@ public class AttestationServer {
                     attestation.write(buffer, 0, read);
 
                     if (attestation.size() > AttestationProtocol.MAX_MESSAGE_SIZE) {
-                        final String response = "Attestation too large";
-                        exchange.sendResponseHeaders(400, response.length());
+                        final byte[] response = "Attestation too large".getBytes();
+                        exchange.sendResponseHeaders(400, response.length);
                         try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(response.getBytes());
+                            output.write(response);
                         }
                         return;
                     }
@@ -346,18 +432,18 @@ public class AttestationServer {
                     AttestationProtocol.verifySerialized(attestationResult, pendingChallenges);
                 } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
                     e.printStackTrace();
-                    final String response = "Error\n";
-                    exchange.sendResponseHeaders(400, response.length());
+                    final byte[] response = "Error\n".getBytes();
+                    exchange.sendResponseHeaders(400, response.length);
                     try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(response.getBytes());
+                        output.write(response);
                     }
                     return;
                 }
 
-                final String response = Integer.toString(VERIFY_INTERVAL);
-                exchange.sendResponseHeaders(200, response.length());
+                final byte[] response = Integer.toString(VERIFY_INTERVAL).getBytes();
+                exchange.sendResponseHeaders(200, response.length);
                 try (final OutputStream output = exchange.getResponseBody()) {
-                    output.write(response.getBytes());
+                    output.write(response);
                 }
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
