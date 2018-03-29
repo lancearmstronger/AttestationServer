@@ -109,7 +109,7 @@ public class AttestationServer {
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
-                    "fingerprint BLOB NOT NULL,\n" +
+                    "fingerprint BLOB NOT NULL REFERENCES Devices (fingerprint),\n" +
                     "time BLOB NOT NULL,\n" +
                     "strong INTEGER NOT NULL,\n" +
                     "teeEnforced TEXT NOT NULL,\n" +
