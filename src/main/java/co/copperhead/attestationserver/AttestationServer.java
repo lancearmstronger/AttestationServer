@@ -8,6 +8,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Bytes;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
@@ -400,9 +401,11 @@ public class AttestationServer {
 
     private static class Account {
         final byte[] username;
+        final byte[] subscribeKey;
 
-        Account(final byte[] username) {
+        Account(final byte[] username, final byte[] subscribeKey) {
             this.username = username;
+            this.subscribeKey = subscribeKey;
         }
     }
 
@@ -427,7 +430,7 @@ public class AttestationServer {
         try {
             open(conn, true);
 
-            final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, expiryTime, username FROM Sessions INNER JOIN Accounts on Accounts.userId = Sessions.userId WHERE Sessions.userId = ?");
+            final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, expiryTime, username, subscribeKey FROM Sessions INNER JOIN Accounts on Accounts.userId = Sessions.userId WHERE Sessions.userId = ?");
             select.bind(1, userId);
             while (select.step()) {
                 if (!MessageDigest.isEqual(cookieToken, select.columnBlob(0)) ||
@@ -439,7 +442,7 @@ public class AttestationServer {
                     break;
                 }
 
-                return new Account(select.columnBlob(3));
+                return new Account(select.columnBlob(3), select.columnBlob(4));
             }
         } finally {
             conn.dispose();
@@ -575,8 +578,28 @@ public class AttestationServer {
                     final String contents = "attestation.copperhead.co " + DEMO_SUBSCRIBE_KEY + " " + VERIFY_INTERVAL;
                     createQrCode(contents.getBytes(), output);
                 }
+            } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                try {
+                    final Account account = verifySession(exchange);
+                    if (account == null) {
+                        exchange.sendResponseHeaders(400, -1);
+                        return;
+                    }
+                    exchange.sendResponseHeaders(200, 0);
+                    try (final OutputStream output = exchange.getResponseBody()) {
+                        final String contents = "attestation.copperhead.co " +
+                            BaseEncoding.base16().encode(account.subscribeKey) + " " +
+                            VERIFY_INTERVAL;
+                        createQrCode(contents.getBytes(), output);
+                    }
+                    return;
+                } catch (final IOException | SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
             } else {
-                exchange.getResponseHeaders().set("Allow", "GET");
+                exchange.getResponseHeaders().set("Allow", "GET, POST");
                 exchange.sendResponseHeaders(405, -1);
             }
         }
