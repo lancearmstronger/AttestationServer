@@ -490,7 +490,7 @@ class AttestationProtocol {
     }
 
     private static void verify(final byte[] fingerprint,
-            final Cache<ByteBuffer, Boolean> pendingChallenges, final ByteBuffer signedMessage, final byte[] signature,
+            final Cache<ByteBuffer, Boolean> pendingChallenges, final long userId, final ByteBuffer signedMessage, final byte[] signature,
             final Certificate[] attestationCertificates, final boolean userProfileSecure,
             final boolean accessibility, final boolean deviceAdmin,
             final boolean deviceAdminNonSystem, final boolean adbEnabled,
@@ -589,7 +589,7 @@ class AttestationProtocol {
              } else {
                 verifySignature(attestationCertificates[0].getPublicKey(), signedMessage, signature);
 
-                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 insert.bind(1, fingerprint);
                 insert.bind(2, attestationCertificates[0].getEncoded());
                 insert.bind(3, attestationCertificates[1].getEncoded());
@@ -607,6 +607,9 @@ class AttestationProtocol {
                 insert.bind(15, denyNewUsb ? 1 : 0);
                 insert.bind(16, now);
                 insert.bind(17, now);
+                if (userId != 0) {
+                    insert.bind(18, userId);
+                }
                 insert.step();
                 insert.dispose();
 
@@ -659,7 +662,7 @@ class AttestationProtocol {
     }
 
     static void verifySerialized(final byte[] attestationResult,
-            final Cache<ByteBuffer, Boolean> pendingChallenges) throws DataFormatException, GeneralSecurityException, IOException {
+            final Cache<ByteBuffer, Boolean> pendingChallenges, final int userId) throws DataFormatException, GeneralSecurityException, IOException {
         final ByteBuffer deserializer = ByteBuffer.wrap(attestationResult);
         final byte version = deserializer.get();
         if (version > PROTOCOL_VERSION) {
@@ -723,7 +726,7 @@ class AttestationProtocol {
         deserializer.rewind();
         deserializer.limit(deserializer.capacity() - signature.length);
 
-        verify(fingerprint, pendingChallenges, deserializer.asReadOnlyBuffer(), signature,
+        verify(fingerprint, pendingChallenges, userId, deserializer.asReadOnlyBuffer(), signature,
                 certificates, userProfileSecure, accessibility, deviceAdmin, deviceAdminNonSystem,
                 adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb);
     }

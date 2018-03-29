@@ -117,7 +117,8 @@ public class AttestationServer {
                     "addUsersWhenLocked INTEGER NOT NULL CHECK (addUsersWhenLocked in (0, 1)),\n" +
                     "denyNewUsb INTEGER NOT NULL CHECK (denyNewUsb in (0, 1)),\n" +
                     "verifiedTimeFirst INTEGER NOT NULL,\n" +
-                    "verifiedTimeLast INTEGER NOT NULL\n" +
+                    "verifiedTimeLast INTEGER NOT NULL,\n" +
+                    "userId INTEGER REFERENCES Accounts (userId)\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
@@ -526,7 +527,7 @@ public class AttestationServer {
                 final byte[] attestationResult = attestation.toByteArray();
 
                 try {
-                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges);
+                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, 0);
                 } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
                     e.printStackTrace();
                     final byte[] response = "Error\n".getBytes();
@@ -621,7 +622,7 @@ public class AttestationServer {
                     open(conn, true);
 
                     final JsonObjectBuilder device = Json.createObjectBuilder();
-                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, verifiedTimeFirst, verifiedTimeLast FROM Devices ORDER BY verifiedTimeFirst");
+                    final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, verifiedTimeFirst, verifiedTimeLast FROM Devices WHERE userId is NULL ORDER BY verifiedTimeFirst");
                     while (select.step()) {
                         device.add("fingerprint", select.columnString(0));
                         device.add("pinnedCertificate0", convertToPem(select.columnBlob(1)));
