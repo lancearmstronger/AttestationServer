@@ -83,13 +83,13 @@ public class AttestationServer {
         }
         conn.setBusyTimeout(BUSY_TIMEOUT);
         conn.exec("PRAGMA foreign_keys=ON");
+        conn.exec("PRAGMA journal_mode=WAL");
     }
 
     public static void main(final String[] args) throws Exception {
         final SQLiteConnection samplesConn = new SQLiteConnection(SAMPLES_DATABASE);
         try {
             open(samplesConn, false);
-            samplesConn.exec("PRAGMA journal_mode=WAL");
             samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (sample TEXT NOT NULL)");
         } finally {
             samplesConn.dispose();
@@ -98,7 +98,6 @@ public class AttestationServer {
         final SQLiteConnection attestationConn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
             open(attestationConn, false);
-            attestationConn.exec("PRAGMA journal_mode=WAL");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Devices (\n" +
                     "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
