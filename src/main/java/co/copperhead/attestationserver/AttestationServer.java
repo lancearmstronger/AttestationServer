@@ -413,7 +413,7 @@ public class AttestationServer {
                     exchange.sendResponseHeaders(400, -1);
                     return;
                 }
-                final int userId = Integer.parseInt(session[0]);
+                final long userId = Long.parseLong(session[0]);
                 final byte[] cookieToken = Base64.getDecoder().decode(session[1]);
 
                 final byte[] requestTokenEncoded = new byte[session[1].length()];
