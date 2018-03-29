@@ -399,63 +399,76 @@ public class AttestationServer {
         return null;
     }
 
+    private static class Account {
+        final byte[] username;
+
+        Account(final byte[] username) {
+            this.username = username;
+        }
+    }
+
+    private static Account verifySession(final HttpExchange exchange) throws IOException, SQLiteException {
+        final String cookie = getCookie(exchange, "__Host-session");
+        if (cookie == null) {
+            return null;
+        }
+        final String[] session = cookie.split("\\|", 2);
+        if (session.length != 2) {
+            return null;
+        }
+        final long userId = Long.parseLong(session[0]);
+        final byte[] cookieToken = Base64.getDecoder().decode(session[1]);
+
+        final byte[] requestTokenEncoded = new byte[session[1].length()];
+        final DataInputStream input = new DataInputStream(exchange.getRequestBody());
+        input.readFully(requestTokenEncoded);
+        final byte[] requestToken = Base64.getDecoder().decode(requestTokenEncoded);
+
+        final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+        try {
+            open(conn, true);
+
+            final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, expiryTime, username FROM Sessions INNER JOIN Accounts on Accounts.userId = Sessions.userId WHERE Sessions.userId = ?");
+            select.bind(1, userId);
+            while (select.step()) {
+                if (!MessageDigest.isEqual(cookieToken, select.columnBlob(0)) ||
+                        !MessageDigest.isEqual(requestToken, select.columnBlob(1))) {
+                    continue;
+                }
+
+                if (select.columnLong(2) < System.currentTimeMillis()) {
+                    break;
+                }
+
+                return new Account(select.columnBlob(3));
+            }
+        } finally {
+            conn.dispose();
+        }
+
+        return null;
+    }
+
     private static class UsernameHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final String cookie = getCookie(exchange, "__Host-session");
-                if (cookie == null) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
-                final String[] session = cookie.split("\\|", 2);
-                if (session.length != 2) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
-                final long userId = Long.parseLong(session[0]);
-                final byte[] cookieToken = Base64.getDecoder().decode(session[1]);
-
-                final byte[] requestTokenEncoded = new byte[session[1].length()];
-                final DataInputStream input = new DataInputStream(exchange.getRequestBody());
-                input.readFully(requestTokenEncoded);
-                final byte[] requestToken = Base64.getDecoder().decode(requestTokenEncoded);
-
-                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                 try {
-                    open(conn, true);
-
-                    final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, expiryTime, username FROM Sessions INNER JOIN Accounts on Accounts.userId = Sessions.userId WHERE Sessions.userId = ?");
-                    select.bind(1, userId);
-                    while (select.step()) {
-                        if (!MessageDigest.isEqual(cookieToken, select.columnBlob(0)) ||
-                                !MessageDigest.isEqual(requestToken, select.columnBlob(1))) {
-                            continue;
-                        }
-
-                        if (select.columnLong(2) < System.currentTimeMillis()) {
-                            break;
-                        }
-
-                        final byte[] username = select.columnBlob(3);
-
-                        exchange.sendResponseHeaders(200, username.length);
-                        try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(username);
-                        }
+                    final Account account = verifySession(exchange);
+                    if (account == null) {
+                        exchange.sendResponseHeaders(400, -1);
                         return;
                     }
-                    exchange.sendResponseHeaders(400, -1);
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
+                    exchange.sendResponseHeaders(200, account.username.length);
+                    try (final OutputStream output = exchange.getResponseBody()) {
+                        output.write(account.username);
+                    }
                     return;
-                } finally {
-                    conn.dispose();
+                } catch (final IOException | SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
                 }
-
-                exchange.sendResponseHeaders(200, -1);
-                return;
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
