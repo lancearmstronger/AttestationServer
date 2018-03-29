@@ -100,6 +100,24 @@ public class AttestationServer {
         try {
             open(attestationConn, false);
             attestationConn.exec(
+                    "CREATE TABLE IF NOT EXISTS Accounts (\n" +
+                    "userId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
+                    "username TEXT UNIQUE NOT NULL,\n" +
+                    "passwordHash BLOB UNIQUE NOT NULL,\n" +
+                    "passwordSalt BLOB UNIQUE NOT NULL,\n" +
+                    "subscribeKey BLOB UNIQUE NOT NULL,\n" +
+                    "creationTime INTEGER NOT NULL\n" +
+                    ")");
+            attestationConn.exec(
+                    "CREATE TABLE IF NOT EXISTS Sessions (\n" +
+                    "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
+                    "cookieToken BLOB UNIQUE NOT NULL,\n" +
+                    "requestToken BLOB UNIQUE NOT NULL,\n" +
+                    "expiryTime INTEGER NOT NULL\n" +
+                    ")");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS sessionExpiryTimeIndex " +
+                    "ON Sessions (expiryTime)");
+            attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Devices (\n" +
                     "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
                     "pinnedCertificate0 BLOB NOT NULL,\n" +
@@ -128,24 +146,6 @@ public class AttestationServer {
                     "teeEnforced TEXT NOT NULL,\n" +
                     "osEnforced TEXT NOT NULL\n" +
                     ")");
-            attestationConn.exec(
-                    "CREATE TABLE IF NOT EXISTS Accounts (\n" +
-                    "userId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
-                    "username TEXT UNIQUE NOT NULL,\n" +
-                    "passwordHash BLOB UNIQUE NOT NULL,\n" +
-                    "passwordSalt BLOB UNIQUE NOT NULL,\n" +
-                    "subscribeKey BLOB UNIQUE NOT NULL,\n" +
-                    "creationTime INTEGER NOT NULL\n" +
-                    ")");
-            attestationConn.exec(
-                    "CREATE TABLE IF NOT EXISTS Sessions (\n" +
-                    "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
-                    "cookieToken BLOB UNIQUE NOT NULL,\n" +
-                    "requestToken BLOB UNIQUE NOT NULL,\n" +
-                    "expiryTime INTEGER NOT NULL\n" +
-                    ")");
-            attestationConn.exec("CREATE INDEX IF NOT EXISTS sessionExpiryTimeIndex " +
-                    "ON Sessions (expiryTime)");
         } finally {
             attestationConn.dispose();
         }
