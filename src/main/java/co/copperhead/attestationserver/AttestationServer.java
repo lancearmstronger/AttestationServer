@@ -434,7 +434,7 @@ public class AttestationServer {
                         }
 
                         if (select.columnLong(2) < System.currentTimeMillis()) {
-                            continue;
+                            break;
                         }
 
                         final byte[] username = select.columnBlob(3);
