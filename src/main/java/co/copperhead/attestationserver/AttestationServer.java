@@ -111,6 +111,7 @@ public class AttestationServer {
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Accounts (\n" +
+                    "userId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
                     "username TEXT UNIQUE NOT NULL,\n" +
                     "passwordHash BLOB UNIQUE NOT NULL,\n" +
                     "passwordSalt BLOB UNIQUE NOT NULL,\n" +
@@ -155,7 +156,8 @@ public class AttestationServer {
         try {
             conn.open();
             conn.setBusyTimeout(BUSY_TIMEOUT);
-            final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts VALUES (?, ?, ?, ?)");
+            final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts " +
+                    "(username, passwordHash, passwordSalt, subscribeKey) VALUES (?, ?, ?, ?)");
             insert.bind(1, username);
             insert.bind(2, passwordHash);
             insert.bind(3, passwordSalt);
