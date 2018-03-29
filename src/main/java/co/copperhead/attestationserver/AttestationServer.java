@@ -60,6 +60,7 @@ public class AttestationServer {
     static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
     private static final String DEMO_ACCOUNT = "0000000000000000000000000000000000000000000000000000000000000000";
+    private static final long SESSION_LENGTH = 1000 * 60 * 60 * 48;
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
@@ -67,10 +68,15 @@ public class AttestationServer {
             .build();
     private static byte[] challengeIndex;
 
+    static void open(final SQLiteConnection conn) throws SQLiteException {
+        conn.open();
+        conn.exec("PRAGMA foreign_keys=ON");
+    }
+
     public static void main(final String[] args) throws Exception {
         final SQLiteConnection samplesConn = new SQLiteConnection(SAMPLES_DATABASE);
         try {
-            samplesConn.open();
+            open(samplesConn);
             samplesConn.exec("PRAGMA journal_mode=WAL");
             samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (sample TEXT NOT NULL)");
         } finally {
@@ -79,7 +85,7 @@ public class AttestationServer {
 
         final SQLiteConnection attestationConn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
-            attestationConn.open();
+            open(attestationConn);
             attestationConn.exec("PRAGMA journal_mode=WAL");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Devices (\n" +
@@ -117,6 +123,15 @@ public class AttestationServer {
                     "passwordSalt BLOB UNIQUE NOT NULL,\n" +
                     "subscribeKey BLOB UNIQUE NOT NULL\n" +
                     ")");
+            attestationConn.exec(
+                    "CREATE TABLE IF NOT EXISTS Sessions (\n" +
+                    "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
+                    "cookieToken BLOB UNIQUE NOT NULL,\n" +
+                    "requestToken BLOB UNIQUE NOT NULL,\n" +
+                    "expireTime INTEGER NOT NULL\n" +
+                    ")");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS sessionExpireTimeIndex " +
+                    "ON Sessions (expireTime)");
         } finally {
             attestationConn.dispose();
         }
@@ -154,7 +169,7 @@ public class AttestationServer {
 
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
-            conn.open();
+            open(conn);
             conn.setBusyTimeout(BUSY_TIMEOUT);
             final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts " +
                     "(username, passwordHash, passwordSalt, subscribeKey) VALUES (?, ?, ?, ?)");
@@ -169,20 +184,60 @@ public class AttestationServer {
         }
     }
 
-    private static void verifyLogin(final String username, final String password) throws GeneralSecurityException, SQLiteException {
+    private static class Session {
+        final long userId;
+        final byte[] cookieToken;
+        final byte[] requestToken;
+        final long expireTime;
+
+        Session(final long userId, final byte[] cookieToken, final byte[] requestToken,
+                final long expireTime) {
+            this.userId = userId;
+            this.cookieToken = cookieToken;
+            this.requestToken = requestToken;
+            this.expireTime = expireTime;
+        }
+    }
+
+    private static Session login(final String username, final String password) throws GeneralSecurityException, SQLiteException {
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
-            conn.openReadonly();
+            open(conn);
             conn.setBusyTimeout(BUSY_TIMEOUT);
-            final SQLiteStatement select = conn.prepare("SELECT passwordHash, passwordSalt FROM Accounts WHERE username = ?");
+            final SQLiteStatement select = conn.prepare("SELECT userId, passwordHash, passwordSalt FROM Accounts WHERE username = ?");
             select.bind(1, username);
             select.step();
-            final byte[] passwordHash = select.columnBlob(0);
-            final byte[] passwordSalt = select.columnBlob(1);
+            final long userId = select.columnLong(0);
+            final byte[] passwordHash = select.columnBlob(1);
+            final byte[] passwordSalt = select.columnBlob(2);
             select.dispose();
             if (!MessageDigest.isEqual(hash(password.getBytes(), passwordSalt), passwordHash)) {
                 throw new GeneralSecurityException("invalid credentials");
             }
+
+            final long now = System.currentTimeMillis();
+            final SQLiteStatement delete = conn.prepare("DELETE FROM Sessions where expireTime < ?");
+            delete.bind(1, now);
+            delete.step();
+            delete.dispose();
+
+            final SecureRandom random = new SecureRandom();
+            final byte[] cookieToken = new byte[32];
+            random.nextBytes(cookieToken);
+            final byte[] requestToken = new byte[32];
+            random.nextBytes(requestToken);
+            final long expireTime = now + SESSION_LENGTH;
+
+            final SQLiteStatement insert = conn.prepare("INSERT INTO Sessions " +
+                    "(userId, cookieToken, requestToken, expireTime) VALUES (?, ?, ?, ?)");
+            insert.bind(1, userId);
+            insert.bind(2, cookieToken);
+            insert.bind(3, requestToken);
+            insert.bind(4, expireTime);
+            insert.step();
+            insert.dispose();
+
+            return new Session(userId, cookieToken, requestToken, expireTime);
         } finally {
             conn.dispose();
         }
@@ -211,7 +266,7 @@ public class AttestationServer {
 
                 final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                 try {
-                    conn.open();
+                    open(conn);
                     conn.setBusyTimeout(BUSY_TIMEOUT);
                     final SQLiteStatement insert = conn.prepare("INSERT INTO Samples VALUES (?)");
                     insert.bind(1, sample.toByteArray());
