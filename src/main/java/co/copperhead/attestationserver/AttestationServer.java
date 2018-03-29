@@ -97,13 +97,13 @@ public class AttestationServer {
                     "pinnedOsVersion INTEGER NOT NULL,\n" +
                     "pinnedOsPatchLevel INTEGER NOT NULL,\n" +
                     "pinnedAppVersion INTEGER NOT NULL,\n" +
-                    "userProfileSecure INTEGER NOT NULL,\n" +
-                    "enrolledFingerprints INTEGER NOT NULL,\n" +
-                    "accessibility INTEGER NOT NULL,\n" +
-                    "deviceAdmin INTEGER NOT NULL,\n" +
-                    "adbEnabled INTEGER NOT NULL,\n" +
-                    "addUsersWhenLocked INTEGER NOT NULL,\n" +
-                    "denyNewUsb INTEGER NOT NULL,\n" +
+                    "userProfileSecure INTEGER NOT NULL CHECK (userProfileSecure in (0, 1)),\n" +
+                    "enrolledFingerprints INTEGER NOT NULL CHECK (enrolledFingerprints in (0, 1)),\n" +
+                    "accessibility INTEGER NOT NULL CHECK (accessibility in (0, 1)),\n" +
+                    "deviceAdmin INTEGER NOT NULL CHECK (deviceAdmin in (0, 1, 2)),\n" +
+                    "adbEnabled INTEGER NOT NULL CHECK (adbEnabled in (0, 1)),\n" +
+                    "addUsersWhenLocked INTEGER NOT NULL CHECK (addUsersWhenLocked in (0, 1)),\n" +
+                    "denyNewUsb INTEGER NOT NULL CHECK (denyNewUsb in (0, 1)),\n" +
                     "verifiedTimeFirst INTEGER NOT NULL,\n" +
                     "verifiedTimeLast INTEGER NOT NULL\n" +
                     ")");
@@ -111,7 +111,7 @@ public class AttestationServer {
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
                     "fingerprint BLOB NOT NULL REFERENCES Devices (fingerprint),\n" +
                     "time BLOB NOT NULL,\n" +
-                    "strong INTEGER NOT NULL,\n" +
+                    "strong INTEGER NOT NULL CHECK (strong in (0, 1)),\n" +
                     "teeEnforced TEXT NOT NULL,\n" +
                     "osEnforced TEXT NOT NULL\n" +
                     ")");
