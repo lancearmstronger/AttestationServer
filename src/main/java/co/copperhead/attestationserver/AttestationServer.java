@@ -121,17 +121,18 @@ public class AttestationServer {
                     "username TEXT UNIQUE NOT NULL,\n" +
                     "passwordHash BLOB UNIQUE NOT NULL,\n" +
                     "passwordSalt BLOB UNIQUE NOT NULL,\n" +
-                    "subscribeKey BLOB UNIQUE NOT NULL\n" +
+                    "subscribeKey BLOB UNIQUE NOT NULL,\n" +
+                    "creationTime INTEGER NOT NULL\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
                     "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
                     "cookieToken BLOB UNIQUE NOT NULL,\n" +
                     "requestToken BLOB UNIQUE NOT NULL,\n" +
-                    "expireTime INTEGER NOT NULL\n" +
+                    "expiryTime INTEGER NOT NULL\n" +
                     ")");
-            attestationConn.exec("CREATE INDEX IF NOT EXISTS sessionExpireTimeIndex " +
-                    "ON Sessions (expireTime)");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS sessionExpiryTimeIndex " +
+                    "ON Sessions (expiryTime)");
         } finally {
             attestationConn.dispose();
         }
@@ -172,11 +173,13 @@ public class AttestationServer {
             open(conn);
             conn.setBusyTimeout(BUSY_TIMEOUT);
             final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts " +
-                    "(username, passwordHash, passwordSalt, subscribeKey) VALUES (?, ?, ?, ?)");
+                    "(username, passwordHash, passwordSalt, subscribeKey, creationTime) " +
+                    "VALUES (?, ?, ?, ?, ?)");
             insert.bind(1, username);
             insert.bind(2, passwordHash);
             insert.bind(3, passwordSalt);
             insert.bind(4, subscribeKey);
+            insert.bind(5, System.currentTimeMillis());
             insert.step();
             insert.dispose();
         } finally {
@@ -188,14 +191,14 @@ public class AttestationServer {
         final long userId;
         final byte[] cookieToken;
         final byte[] requestToken;
-        final long expireTime;
+        final long expiryTime;
 
         Session(final long userId, final byte[] cookieToken, final byte[] requestToken,
-                final long expireTime) {
+                final long expiryTime) {
             this.userId = userId;
             this.cookieToken = cookieToken;
             this.requestToken = requestToken;
-            this.expireTime = expireTime;
+            this.expiryTime = expiryTime;
         }
     }
 
@@ -216,7 +219,7 @@ public class AttestationServer {
             }
 
             final long now = System.currentTimeMillis();
-            final SQLiteStatement delete = conn.prepare("DELETE FROM Sessions where expireTime < ?");
+            final SQLiteStatement delete = conn.prepare("DELETE FROM Sessions where expiryTime < ?");
             delete.bind(1, now);
             delete.step();
             delete.dispose();
@@ -226,18 +229,18 @@ public class AttestationServer {
             random.nextBytes(cookieToken);
             final byte[] requestToken = new byte[32];
             random.nextBytes(requestToken);
-            final long expireTime = now + SESSION_LENGTH;
+            final long expiryTime = now + SESSION_LENGTH;
 
             final SQLiteStatement insert = conn.prepare("INSERT INTO Sessions " +
-                    "(userId, cookieToken, requestToken, expireTime) VALUES (?, ?, ?, ?)");
+                    "(userId, cookieToken, requestToken, expiryTime) VALUES (?, ?, ?, ?)");
             insert.bind(1, userId);
             insert.bind(2, cookieToken);
             insert.bind(3, requestToken);
-            insert.bind(4, expireTime);
+            insert.bind(4, expiryTime);
             insert.step();
             insert.dispose();
 
-            return new Session(userId, cookieToken, requestToken, expireTime);
+            return new Session(userId, cookieToken, requestToken, expiryTime);
         } finally {
             conn.dispose();
         }
