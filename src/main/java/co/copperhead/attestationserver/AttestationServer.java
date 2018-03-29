@@ -59,7 +59,7 @@ public class AttestationServer {
     private static final int VERIFY_INTERVAL = 3600;
     static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
-    private static final String DEMO_ACCOUNT = "0000000000000000000000000000000000000000000000000000000000000000";
+    private static final String DEMO_SUBSCRIBE_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
     private static final long SESSION_LENGTH = 1000 * 60 * 60 * 48;
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
@@ -314,8 +314,8 @@ public class AttestationServer {
                 }
             } else if (method.equalsIgnoreCase("POST")) {
                 final String account = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
-                if (!DEMO_ACCOUNT.equals(account)) {
-                    final String response = "invalid account";
+                if (!DEMO_SUBSCRIBE_KEY.equals(account)) {
+                    final String response = "invalid subscribe key";
                     exchange.sendResponseHeaders(403, response.length());
                     try (final OutputStream output = exchange.getResponseBody()) {
                         output.write(response.getBytes());
@@ -392,7 +392,7 @@ public class AttestationServer {
                 exchange.getResponseHeaders().set("Cache-Control", "private, max-age=1800");
                 exchange.sendResponseHeaders(200, 0);
                 try (final OutputStream output = exchange.getResponseBody()) {
-                    final String contents = "attestation.copperhead.co " + DEMO_ACCOUNT + " " + VERIFY_INTERVAL;
+                    final String contents = "attestation.copperhead.co " + DEMO_SUBSCRIBE_KEY + " " + VERIFY_INTERVAL;
                     createQrCode(contents.getBytes(), output);
                 }
             } else {
