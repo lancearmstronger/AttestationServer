@@ -123,102 +123,111 @@ function toYesNoString(value) {
 
 function demo() {
     qr.src = "/account.png";
+    fetchDevices(true);
 }
 
-fetch("/devices.json").then(response => {
-    if (!response.ok) {
-        Project.reject();
+function fetchDevices(demo) {
+    let request;
+    if (demo) {
+        request = fetch("/devices.json");
+    } else {
+        request = fetch("/devices.json", {method: "POST", body: token, credentials: "same-origin"});
     }
-    return response.json();
-}).then(devicesJson => {
-    devices.innerText = null;
-    for (const device of devicesJson) {
-        let fingerprint = "";
-        for (let i = 0; i < device.fingerprint.length; i += fingerprintSplitInterval) {
-            fingerprint += device.fingerprint.substring(i, Math.min(device.fingerprint.length, i + fingerprintSplitInterval));
-            if (i + fingerprintSplitInterval < device.fingerprint.length) {
-                fingerprint += "-";
+    request.then(response => {
+        if (!response.ok) {
+            Project.reject();
+        }
+        return response.json();
+    }).then(devicesJson => {
+        devices.innerText = null;
+        for (const device of devicesJson) {
+            let fingerprint = "";
+            for (let i = 0; i < device.fingerprint.length; i += fingerprintSplitInterval) {
+                fingerprint += device.fingerprint.substring(i, Math.min(device.fingerprint.length, i + fingerprintSplitInterval));
+                if (i + fingerprintSplitInterval < device.fingerprint.length) {
+                    fingerprint += "-";
+                }
+            }
+
+            const info = document.createElement("p");
+            info.innerHTML = `<h2 class="fingerprint">${fingerprint}</h2>
+    <h3>Verified device information:</h3>
+    Device: ${device.name}<br/>
+    OS: ${device.os}<br/>
+    OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
+    OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
+    <button class="toggle">show advanced information</button><span class="hidden"><br/>
+    Certificate 0 (persistent Auditor key): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate0}</pre><br/>
+    Certificate 1 (batch): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate1}</pre><br/>
+    Certificate 2 (intermediate): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate2}</pre><br/>
+    Certificate 3 (root): <button class="toggle">show</button><pre class="hidden"><br/>${attestationRoot}</pre><br/>
+    Verified boot key fingerprint: <span class="fingerprint">${device.verifiedBootKey}</span>
+    </span>
+    <h3>Information provided by the verified OS:</h3>
+    Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
+    User profile secure: ${toYesNoString(device.userProfileSecure)}<br/>
+    Enrolled fingerprints: ${toYesNoString(device.enrolledFingerprints)}<br/>
+    Accessibility service(s) enabled: ${toYesNoString(device.accessibility)}<br/>
+    Device administrator(s) enabled: ${deviceAdminStrings[device.deviceAdmin]}<br/>
+    Android Debug Bridge enabled: ${toYesNoString(device.adbEnabled)}<br/>
+    Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
+    Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
+    <h3>Attestation history</h3>
+    First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
+    Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
+    <button class="toggle">show detailed history</button><div id="history-${device.fingerprint}" class="hidden"></div>`
+            devices.append(info);
+
+            const history = document.getElementById("history-" + device.fingerprint);
+            for (const attestation of device.attestations) {
+                const time = document.createElement("h4");
+                time.innerText = new Date(attestation.time);
+                history.append(time);
+
+                const p = document.createElement("p");
+                if (attestation.strong) {
+                    p.innerHTML = "<strong>Successfully performed strong paired verification and identity confirmation.</strong>";
+                } else {
+                    p.innerHTML = "<strong>Successfully performed basic initial verification and pairing.</strong>";
+                }
+                history.append(p);
+
+                const teeEnforcedIntro = document.createElement("p");
+                teeEnforcedIntro.innerHTML = "<h5>Verified device information (constants omitted):</h5>";
+                history.append(teeEnforcedIntro);
+
+                const teeEnforced = document.createElement("p");
+                teeEnforced.innerText = attestation.teeEnforced;
+                history.append(teeEnforced);
+
+                const osEnforcedIntro = document.createElement("p");
+                osEnforcedIntro.innerHTML = "<h5>Information provided by the verified OS:</h5>";
+                history.append(osEnforcedIntro);
+
+                const osEnforced = document.createElement("p");
+                osEnforced.innerText = attestation.osEnforced;
+                history.append(osEnforced);
             }
         }
 
-        const info = document.createElement("p");
-        info.innerHTML = `<h2 class="fingerprint">${fingerprint}</h2>
-<h3>Verified device information:</h3>
-Device: ${device.name}<br/>
-OS: ${device.os}<br/>
-OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
-OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
-<button class="toggle">show advanced information</button><span class="hidden"><br/>
-Certificate 0 (persistent Auditor key): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate0}</pre><br/>
-Certificate 1 (batch): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate1}</pre><br/>
-Certificate 2 (intermediate): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate2}</pre><br/>
-Certificate 3 (root): <button class="toggle">show</button><pre class="hidden"><br/>${attestationRoot}</pre><br/>
-Verified boot key fingerprint: <span class="fingerprint">${device.verifiedBootKey}</span>
-</span>
-<h3>Information provided by the verified OS:</h3>
-Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
-User profile secure: ${toYesNoString(device.userProfileSecure)}<br/>
-Enrolled fingerprints: ${toYesNoString(device.enrolledFingerprints)}<br/>
-Accessibility service(s) enabled: ${toYesNoString(device.accessibility)}<br/>
-Device administrator(s) enabled: ${deviceAdminStrings[device.deviceAdmin]}<br/>
-Android Debug Bridge enabled: ${toYesNoString(device.adbEnabled)}<br/>
-Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
-Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
-<h3>Attestation history</h3>
-First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
-Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
-<button class="toggle">show detailed history</button><div id="history-${device.fingerprint}" class="hidden"></div>`
-        devices.append(info);
-
-        const history = document.getElementById("history-" + device.fingerprint);
-        for (const attestation of device.attestations) {
-            const time = document.createElement("h4");
-            time.innerText = new Date(attestation.time);
-            history.append(time);
-
-            const p = document.createElement("p");
-            if (attestation.strong) {
-                p.innerHTML = "<strong>Successfully performed strong paired verification and identity confirmation.</strong>";
-            } else {
-                p.innerHTML = "<strong>Successfully performed basic initial verification and pairing.</strong>";
-            }
-            history.append(p);
-
-            const teeEnforcedIntro = document.createElement("p");
-            teeEnforcedIntro.innerHTML = "<h5>Verified device information (constants omitted):</h5>";
-            history.append(teeEnforcedIntro);
-
-            const teeEnforced = document.createElement("p");
-            teeEnforced.innerText = attestation.teeEnforced;
-            history.append(teeEnforced);
-
-            const osEnforcedIntro = document.createElement("p");
-            osEnforcedIntro.innerHTML = "<h5>Information provided by the verified OS:</h5>";
-            history.append(osEnforcedIntro);
-
-            const osEnforced = document.createElement("p");
-            osEnforced.innerText = attestation.osEnforced;
-            history.append(osEnforced);
-        }
-    }
-
-    for (const toggle of document.getElementsByClassName("toggle")) {
-        toggle.onclick = event => {
-            const target = event.target;
-            const cert = target.nextSibling;
-            if (cert.style.display === "inline") {
-                target.innerText = target.innerText.replace("hide", "show");
-                cert.style.display = "none";
-            } else {
-                target.innerText = target.innerText.replace("show", "hide");
-                cert.style.display = "inline";
+        for (const toggle of document.getElementsByClassName("toggle")) {
+            toggle.onclick = event => {
+                const target = event.target;
+                const cert = target.nextSibling;
+                if (cert.style.display === "inline") {
+                    target.innerText = target.innerText.replace("hide", "show");
+                    cert.style.display = "none";
+                } else {
+                    target.innerText = target.innerText.replace("show", "hide");
+                    cert.style.display = "inline";
+                }
             }
         }
-    }
-}).catch(error => {
-    console.log(error);
-    devices.innerHTML = "<p>Failed to fetch device data.</p>"
-});
+    }).catch(error => {
+        console.log(error);
+        devices.innerHTML = "<p>Failed to fetch device data.</p>"
+    });
+}
 
 const token = localStorage.getItem("requestToken");
 if (token === null) {
@@ -240,6 +249,7 @@ if (token === null) {
         }).catch(error => {
             console.log(error);
         });
+        fetchDevices(false);
     }).catch(error => {
         console.log(error);
         demo();
