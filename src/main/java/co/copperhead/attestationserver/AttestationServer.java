@@ -641,12 +641,12 @@ public class AttestationServer {
         try {
             open(conn, true);
 
-            final JsonObjectBuilder device = Json.createObjectBuilder();
             final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, verifiedTimeFirst, verifiedTimeLast FROM Devices WHERE userId is ? ORDER BY verifiedTimeFirst");
             if (userId != 0) {
                 select.bind(1, userId);
             }
             while (select.step()) {
+                final JsonObjectBuilder device = Json.createObjectBuilder();
                 device.add("fingerprint", select.columnString(0));
                 device.add("pinnedCertificate0", convertToPem(select.columnBlob(1)));
                 device.add("pinnedCertificate1", convertToPem(select.columnBlob(2)));
