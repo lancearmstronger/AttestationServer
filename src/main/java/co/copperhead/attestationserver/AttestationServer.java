@@ -51,10 +51,11 @@ import java.util.zip.DataFormatException;
 
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
+import javax.json.JsonException;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
-import javax.json.JsonException;
+import javax.json.JsonWriter;
 
 import attestationserver.AttestationProtocol.DeviceInfo;
 
@@ -685,11 +686,10 @@ public class AttestationServer {
                             .add("time", history.columnLong(0))
                             .add("strong", history.columnInt(1) != 0)
                             .add("teeEnforced", history.columnString(2))
-                            .add("osEnforced", history.columnString(3))
-                            .build());
+                            .add("osEnforced", history.columnString(3)));
                 }
-                device.add("attestations", attestations.build());
-                devices.add(device.build());
+                device.add("attestations", attestations);
+                devices.add(device);
 
                 history.dispose();
             }
@@ -703,8 +703,9 @@ public class AttestationServer {
         }
 
         exchange.sendResponseHeaders(200, 0);
-        try (final OutputStream output = exchange.getResponseBody()) {
-            output.write(devices.build().toString().getBytes());
+        try (final OutputStream output = exchange.getResponseBody();
+                final JsonWriter writer = Json.createWriter(output)) {
+            writer.write(devices.build());
         }
     }
 
