@@ -120,25 +120,24 @@ function toYesNoString(value) {
     return value ? "yes" : "no";
 }
 
-fetch("/devices.json")
-    .then(response => {
-        if (!response.ok) {
-            Project.reject();
-        }
-        return response.json();
-    }).then(devicesJson => {
-        devices.innerText = null;
-        for (const device of devicesJson) {
-            let fingerprint = "";
-            for (let i = 0; i < device.fingerprint.length; i += fingerprintSplitInterval) {
-                fingerprint += device.fingerprint.substring(i, Math.min(device.fingerprint.length, i + fingerprintSplitInterval));
-                if (i + fingerprintSplitInterval < device.fingerprint.length) {
-                    fingerprint += "-";
-                }
+fetch("/devices.json").then(response => {
+    if (!response.ok) {
+        Project.reject();
+    }
+    return response.json();
+}).then(devicesJson => {
+    devices.innerText = null;
+    for (const device of devicesJson) {
+        let fingerprint = "";
+        for (let i = 0; i < device.fingerprint.length; i += fingerprintSplitInterval) {
+            fingerprint += device.fingerprint.substring(i, Math.min(device.fingerprint.length, i + fingerprintSplitInterval));
+            if (i + fingerprintSplitInterval < device.fingerprint.length) {
+                fingerprint += "-";
             }
+        }
 
-            const info = document.createElement("p");
-            info.innerHTML = `<h2 class="fingerprint">${fingerprint}</h2>
+        const info = document.createElement("p");
+        info.innerHTML = `<h2 class="fingerprint">${fingerprint}</h2>
 <h3>Verified device information:</h3>
 Device: ${device.name}<br/>
 OS: ${device.os}<br/>
@@ -164,54 +163,54 @@ Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
 First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
 Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
 <button class="toggle">show detailed history</button><div id="history-${device.fingerprint}" class="hidden"></div>`
-            devices.append(info);
+        devices.append(info);
 
-            const history = document.getElementById("history-" + device.fingerprint);
-            for (const attestation of device.attestations) {
-                const time = document.createElement("h4");
-                time.innerText = new Date(attestation.time);
-                history.append(time);
+        const history = document.getElementById("history-" + device.fingerprint);
+        for (const attestation of device.attestations) {
+            const time = document.createElement("h4");
+            time.innerText = new Date(attestation.time);
+            history.append(time);
 
-                const p = document.createElement("p");
-                if (attestation.strong) {
-                    p.innerHTML = "<strong>Successfully performed strong paired verification and identity confirmation.</strong>";
-                } else {
-                    p.innerHTML = "<strong>Successfully performed basic initial verification and pairing.</strong>";
-                }
-                history.append(p);
+            const p = document.createElement("p");
+            if (attestation.strong) {
+                p.innerHTML = "<strong>Successfully performed strong paired verification and identity confirmation.</strong>";
+            } else {
+                p.innerHTML = "<strong>Successfully performed basic initial verification and pairing.</strong>";
+            }
+            history.append(p);
 
-                const teeEnforcedIntro = document.createElement("p");
-                teeEnforcedIntro.innerHTML = "<h5>Verified device information (constants omitted):</h5>";
-                history.append(teeEnforcedIntro);
+            const teeEnforcedIntro = document.createElement("p");
+            teeEnforcedIntro.innerHTML = "<h5>Verified device information (constants omitted):</h5>";
+            history.append(teeEnforcedIntro);
 
-                const teeEnforced = document.createElement("p");
-                teeEnforced.innerText = attestation.teeEnforced;
-                history.append(teeEnforced);
+            const teeEnforced = document.createElement("p");
+            teeEnforced.innerText = attestation.teeEnforced;
+            history.append(teeEnforced);
 
-                const osEnforcedIntro = document.createElement("p");
-                osEnforcedIntro.innerHTML = "<h5>Information provided by the verified OS:</h5>";
-                history.append(osEnforcedIntro);
+            const osEnforcedIntro = document.createElement("p");
+            osEnforcedIntro.innerHTML = "<h5>Information provided by the verified OS:</h5>";
+            history.append(osEnforcedIntro);
 
-                const osEnforced = document.createElement("p");
-                osEnforced.innerText = attestation.osEnforced;
-                history.append(osEnforced);
+            const osEnforced = document.createElement("p");
+            osEnforced.innerText = attestation.osEnforced;
+            history.append(osEnforced);
+        }
+    }
+
+    for (const toggle of document.getElementsByClassName("toggle")) {
+        toggle.onclick = event => {
+            const target = event.target;
+            const cert = target.nextSibling;
+            if (cert.style.display === "inline") {
+                target.innerText = target.innerText.replace("hide", "show");
+                cert.style.display = "none";
+            } else {
+                target.innerText = target.innerText.replace("show", "hide");
+                cert.style.display = "inline";
             }
         }
-
-        for (const toggle of document.getElementsByClassName("toggle")) {
-            toggle.onclick = event => {
-                const target = event.target;
-                const cert = target.nextSibling;
-                if (cert.style.display === "inline") {
-                    target.innerText = target.innerText.replace("hide", "show");
-                    cert.style.display = "none";
-                } else {
-                    target.innerText = target.innerText.replace("show", "hide");
-                    cert.style.display = "inline";
-                }
-            }
-        }
-    }).catch(error => {
-        console.log(error);
-        devices.innerHTML = "<p>Failed to fetch device data.</p>"
-    });
+    }
+}).catch(error => {
+    console.log(error);
+    devices.innerHTML = "<p>Failed to fetch device data.</p>"
+});
