@@ -275,7 +275,8 @@ public class AttestationServer {
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
             open(conn, false);
-            final SQLiteStatement select = conn.prepare("SELECT userId, passwordHash, passwordSalt FROM Accounts WHERE username = ?");
+            final SQLiteStatement select = conn.prepare("SELECT userId, passwordHash, " +
+                    "passwordSalt FROM Accounts WHERE username = ?");
             select.bind(1, username);
             select.step();
             final long userId = select.columnLong(0);
@@ -435,7 +436,10 @@ public class AttestationServer {
         try {
             open(conn, true);
 
-            final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, expiryTime, username, subscribeKey FROM Sessions INNER JOIN Accounts on Accounts.userId = Sessions.userId WHERE Sessions.userId = ?");
+            final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, " +
+                    "expiryTime, username, subscribeKey FROM Sessions " +
+                    "INNER JOIN Accounts on Accounts.userId = Sessions.userId " +
+                    "WHERE Sessions.userId = ?");
             select.bind(1, userId);
             while (select.step()) {
                 if (!MessageDigest.isEqual(cookieToken, select.columnBlob(0)) ||
@@ -641,7 +645,12 @@ public class AttestationServer {
         try {
             open(conn, true);
 
-            final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, verifiedTimeFirst, verifiedTimeLast FROM Devices WHERE userId is ? ORDER BY verifiedTimeFirst");
+            final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), " +
+                    "pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, " +
+                    "hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, " +
+                    "pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, " +
+                    "deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, verifiedTimeFirst, " +
+                    "verifiedTimeLast FROM Devices WHERE userId is ? ORDER BY verifiedTimeFirst");
             if (userId != 0) {
                 select.bind(1, userId);
             }
@@ -677,7 +686,8 @@ public class AttestationServer {
                 device.add("verifiedTimeFirst", select.columnLong(15));
                 device.add("verifiedTimeLast", select.columnLong(16));
 
-                final SQLiteStatement history = conn.prepare("SELECT time, strong, teeEnforced, osEnforced FROM Attestations WHERE hex(fingerprint) = ? ORDER BY time");
+                final SQLiteStatement history = conn.prepare("SELECT time, strong, teeEnforced, " +
+                        "osEnforced FROM Attestations WHERE hex(fingerprint) = ? ORDER BY time");
                 history.bind(1, select.columnString(0));
 
                 final JsonArrayBuilder attestations = Json.createArrayBuilder();
