@@ -226,10 +226,10 @@ public class AttestationServer {
     }
 
     private static void createAccount(final String username, final String password) throws GeneralSecurityException, SQLiteException {
-        if (!username.matches("[a-zA-Z0-9]+")) {
+        if (username.length() > 32 || !username.matches("[a-zA-Z0-9]+")) {
             throw new GeneralSecurityException("invalid username");
         }
-        if (password.length() < 8) {
+        if (password.length() < 8 || password.length() > 4096) {
             throw new GeneralSecurityException("invalid password");
         }
 
@@ -372,7 +372,7 @@ public class AttestationServer {
                 final Base64.Encoder encoder = Base64.getEncoder();
                 final byte[] requestToken = encoder.encode(session.requestToken);
                 exchange.getResponseHeaders().set("Set-Cookie",
-                        String.format("__Host-session=%d|%s; HttpOnly; Secure; SameSite; Path=/; Max-Age=%d",
+                        String.format("__Host-session=%d|%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d",
                             session.userId, new String(encoder.encode(session.cookieToken)),
                             SESSION_LENGTH / 1000));
                 exchange.sendResponseHeaders(200, requestToken.length);

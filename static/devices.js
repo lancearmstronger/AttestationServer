@@ -33,8 +33,67 @@ wDB5y0USicV3YgYGmi+NZfhA4URSh77Yd6uuJOJENRaNVTzk
 -----END CERTIFICATE-----`;
 const fingerprintSplitInterval = 4;
 const attestationAppVersionCodeOffset = 9;
+const create = document.getElementById("create");
+const createForm = document.getElementById("create_form");
+const createUsername = document.getElementById("create_username");
+const createPassword = document.getElementById("create_password");
+const createPasswordConfirm = document.getElementById("create_password_confirm");
+const login = document.getElementById("login");
+const loginForm = document.getElementById("login_form");
+const loginUsername = document.getElementById("login_username");
+const loginPassword = document.getElementById("login_password");
 const devices = document.getElementById("devices");
 devices.style.display = "block";
+
+create.onclick = function() {
+    createForm.style.display = "block";
+    loginForm.style.display = "none";
+}
+
+createPasswordConfirm.oninput = function() {
+    if (createPassword.value === createPasswordConfirm.value) {
+        createPasswordConfirm.setCustomValidity("");
+    }
+}
+
+createForm.onsubmit = function(event) {
+    event.preventDefault();
+    const password = createPassword.value;
+    if (password !== createPasswordConfirm.value) {
+        createPasswordConfirm.setCustomValidity("Password does not match");
+        createPasswordConfirm.reportValidity();
+        return;
+    }
+    const createJson = JSON.stringify({username: createUsername.value, password: password});
+    fetch("/create_account", {method: "POST", body: createJson}).then(response => {
+        if (!response.ok) {
+            Project.reject();
+        }
+        createForm.style.display = "none";
+    }).catch(error => {
+        console.log(error);
+    });
+}
+
+login.onclick = function() {
+    loginForm.style.display = "block";
+    createForm.style.display = "none";
+}
+
+loginForm.onsubmit = function() {
+    event.preventDefault();
+    const loginJson = JSON.stringify({username: loginUsername.value, password: loginPassword.value});
+    fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
+        if (!response.ok) {
+            Project.reject();
+        }
+        return response.text();
+    }).then(text => {
+        localStorage.setItem("requestToken", text);
+    }).catch(error => {
+        console.log(error);
+    });
+}
 
 const deviceAdminStrings = {
     0: "no",
