@@ -43,6 +43,7 @@ const loginForm = document.getElementById("login_form");
 const loginUsername = document.getElementById("login_username");
 const loginPassword = document.getElementById("login_password");
 const devices = document.getElementById("devices");
+const qr = document.getElementById("qr");
 devices.style.display = "block";
 
 create.onclick = function() {
@@ -119,6 +120,8 @@ function toYesNoString(value) {
     }
     return value ? "yes" : "no";
 }
+
+qr.src = "/account.png";
 
 fetch("/devices.json").then(response => {
     if (!response.ok) {
