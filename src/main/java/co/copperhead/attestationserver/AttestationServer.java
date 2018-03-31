@@ -7,7 +7,6 @@ import com.almworks.sqlite4java.SQLiteStatement;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-import com.google.common.base.CharMatcher;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Bytes;
 import com.google.zxing.BarcodeFormat;
@@ -227,7 +226,7 @@ public class AttestationServer {
     }
 
     private static void createAccount(final String username, final String password) throws GeneralSecurityException, SQLiteException {
-        if (!CharMatcher.ascii().matchesAllOf(username)) {
+        if (!username.matches("[a-zA-Z0-9]+")) {
             throw new GeneralSecurityException("invalid username");
         }
         if (password.length() < 8) {
