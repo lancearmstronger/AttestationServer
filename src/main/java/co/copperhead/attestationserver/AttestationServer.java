@@ -688,10 +688,10 @@ public class AttestationServer {
                             .add("teeEnforced", history.columnString(2))
                             .add("osEnforced", history.columnString(3)));
                 }
-                device.add("attestations", attestations);
-                devices.add(device);
-
                 history.dispose();
+                device.add("attestations", attestations);
+
+                devices.add(device);
             }
             select.dispose();
         } catch (final SQLiteException e) {
