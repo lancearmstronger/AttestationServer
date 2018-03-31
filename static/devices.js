@@ -89,8 +89,8 @@ loginForm.onsubmit = function() {
             Project.reject();
         }
         return response.text();
-    }).then(text => {
-        localStorage.setItem("requestToken", text);
+    }).then(requestToken => {
+        localStorage.setItem("requestToken", requestToken);
     }).catch(error => {
         console.log(error);
     });
@@ -121,7 +121,9 @@ function toYesNoString(value) {
     return value ? "yes" : "no";
 }
 
-qr.src = "/account.png";
+function demo() {
+    qr.src = "/account.png";
+}
 
 fetch("/devices.json").then(response => {
     if (!response.ok) {
@@ -217,3 +219,29 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
     console.log(error);
     devices.innerHTML = "<p>Failed to fetch device data.</p>"
 });
+
+const token = localStorage.getItem("requestToken");
+if (token === null) {
+    demo();
+} else {
+    fetch("/username", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
+        if (!response.ok) {
+            Project.reject();
+        }
+        return response.text();
+    }).then(username => {
+        fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
+            if (!response.ok) {
+                Project.reject();
+            }
+            return response.blob();
+        }).then(imageBlob => {
+            qr.src = URL.createObjectURL(imageBlob);
+        }).catch(error => {
+            console.log(error);
+        });
+    }).catch(error => {
+        console.log(error);
+        demo();
+    });
+}
