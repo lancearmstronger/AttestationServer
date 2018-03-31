@@ -1,3 +1,5 @@
+Redirect 301 /devices https://attestation.copperhead.co/devices.json
+
 <FilesMatch "\.(html|ico|txt|xml)$">
 Header set Cache-Control "public, max-age=1800"
 </FilesMatch>
