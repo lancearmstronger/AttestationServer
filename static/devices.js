@@ -90,7 +90,7 @@ function displayLogin(username) {
     loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
     fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
-            Promise.reject();
+            return Promise.reject();
         }
         return response.blob();
     }).then(imageBlob => {
@@ -111,7 +111,7 @@ function fetchDevices(demo) {
     }
     request.then(response => {
         if (!response.ok) {
-            Promise.reject();
+            return Promise.reject();
         }
         return response.json();
     }).then(devicesJson => {
@@ -211,7 +211,7 @@ if (token === null) {
 } else {
     fetch("/username", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
-            Promise.reject();
+            return Promise.reject();
         }
         return response.text();
     }).then(username => {
@@ -244,7 +244,7 @@ createForm.onsubmit = function(event) {
     const createJson = JSON.stringify({username: createUsername.value, password: password});
     fetch("/create_account", {method: "POST", body: createJson}).then(response => {
         if (!response.ok) {
-            Promise.reject();
+            return Promise.reject();
         }
         createForm.style.display = "none";
     }).catch(error => {
@@ -262,14 +262,14 @@ loginForm.onsubmit = function() {
     const loginJson = JSON.stringify({username: loginUsername.value, password: loginPassword.value});
     fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
-            Promise.reject();
+            return Promise.reject();
         }
         return response.text();
     }).then(requestToken => {
         localStorage.setItem("requestToken", requestToken);
         fetch("/username", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
             if (!response.ok) {
-                Promise.reject();
+                return Promise.reject();
             }
             return response.text();
         }).then(username => {
