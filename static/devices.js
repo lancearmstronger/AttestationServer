@@ -43,6 +43,7 @@ const loginForm = document.getElementById("login_form");
 const loginUsername = document.getElementById("login_username");
 const loginPassword = document.getElementById("login_password");
 const loginStatus = document.getElementById("login_status");
+const formToggles = document.getElementById("form_toggles");
 const logout = document.getElementById("logout");
 const devices = document.getElementById("devices");
 const qr = document.getElementById("qr");
@@ -77,15 +78,13 @@ function demo() {
     qr.src = "/account.png";
     qr.alt = "demo account QR code";
     fetchDevices(true);
-    create.style.display = "inline";
-    login.style.display = "inline";
+    formToggles.style.display = "inline";
 }
 
 function displayLogin(username) {
     const token = localStorage.getItem("requestToken");
-    create.style.display = "none";
+    formToggles.style.display = "none";
     createForm.style.display = "none";
-    login.style.display = "none";
     loginForm.style.display = "none";
     loginForm.submit.disabled = false;
     logout.style.display = "inline";
@@ -232,8 +231,8 @@ if (token === null) {
 }
 
 create.onclick = function() {
+    formToggles.style.display = "none";
     createForm.style.display = "block";
-    loginForm.style.display = "none";
 }
 
 createPasswordConfirm.oninput = function() {
@@ -265,11 +264,11 @@ createForm.onsubmit = function(event) {
 }
 
 login.onclick = function() {
+    formToggles.style.display = "none";
     loginForm.style.display = "block";
-    createForm.style.display = "none";
 }
 
-loginForm.onsubmit = function() {
+loginForm.onsubmit = function(event) {
     event.preventDefault();
     const loginJson = JSON.stringify({username: loginUsername.value, password: loginPassword.value});
     loginForm.submit.disabled = true;
@@ -321,5 +320,6 @@ logout.onclick = function() {
 for (const cancel of document.getElementsByClassName("cancel")) {
     cancel.onclick = function() {
         this.parentElement.style.display = "none";
+        formToggles.style.display = "inline";
     }
 }

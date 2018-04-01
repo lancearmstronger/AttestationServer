@@ -19,20 +19,22 @@
         <div id="content">
             <p><strong>Accounts are currently temporary and will be repeatedly removed as the service is developed.</strong></p>
             <span id="login_status"></span>
-            <button id="create" class="hidden">Create account</button>
-            <button id="login" class="hidden">Login</button>
+            <span id="form_toggles" class="hidden">
+                <button id="create">Create account</button>
+                <button id="login">Login</button>
+            </span>
             <button id="logout" class="hidden">Logout</button>
             <form id="create_form" class="hidden">
                 <label>Username: <input id="create_username" type="text" autocomplete="username" maxlength="32" pattern="[a-zA-Z0-9]+" required="required"/></label><br/>
                 <label>Password: <input id="create_password" type="password" autocomplete="new-password" maxlength="4096" minlength="8" required="required"/></label><br/>
                 <label>Confirm password: <input id="create_password_confirm" type="password" autocomplete="new-password" maxlength="4096" minlength="8" required="required"/></label><br/>
-                <input name="submit" type="submit"/>
+                <button name="submit">Create account</button>
                 <button type="button" class="cancel">Cancel</button>
             </form>
             <form id="login_form" class="hidden">
                 <label>Username: <input id="login_username" type="text" autocomplete="username" maxlength="32" pattern="[a-zA-Z0-9]+" required="required"/></label><br/>
                 <label>Password: <input id="login_password" type="password" autocomplete="current-password" maxlength="4096" minlength="8" required="required"/></label><br/>
-                <input name="submit" type="submit"/>
+                <button name="submit">Login</button>
                 <button type="button" class="cancel">Cancel</button>
             </form>
             <h1>Device integrity monitoring demo</h1>

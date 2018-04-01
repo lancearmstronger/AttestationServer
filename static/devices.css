@@ -60,7 +60,7 @@ nav ul li a {
     display: none;
 }
 
-button, input[type="submit"] {
+button {
     background-color: #d6d7d7;
     border: none;
     border-radius: 2px;
@@ -78,6 +78,10 @@ button:focus {
 button::-moz-focus-inner {
     border: 0;
     padding: 0;
+}
+
+input {
+    margin: 2px;
 }
 
 /* latin */
