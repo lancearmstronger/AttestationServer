@@ -165,6 +165,7 @@ public class AttestationServer {
         server.createContext("/submit", new SubmitHandler());
         server.createContext("/create_account", new CreateAccountHandler());
         server.createContext("/login", new LoginHandler());
+        server.createContext("/logout", new LogoutHandler());
         server.createContext("/username", new UsernameHandler());
         server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/verify", new VerifyHandler());
@@ -386,6 +387,31 @@ public class AttestationServer {
         }
     }
 
+    private static class LogoutHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                try {
+                    final Account account = verifySession(exchange);
+                    if (account == null) {
+                        exchange.sendResponseHeaders(403, -1);
+                        return;
+                    }
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                }
+                exchange.getResponseHeaders().set("Set-Cookie",
+                        "__Host-session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
+                exchange.sendResponseHeaders(200, -1);
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
     private static String getCookie(final HttpExchange exchange, final String key) {
         final List<String> cookies = exchange.getRequestHeaders().get("Cookie");
         if (cookies == null) {
@@ -466,7 +492,7 @@ public class AttestationServer {
                 try {
                     final Account account = verifySession(exchange);
                     if (account == null) {
-                        exchange.sendResponseHeaders(400, -1);
+                        exchange.sendResponseHeaders(403, -1);
                         return;
                     }
                     exchange.sendResponseHeaders(200, account.username.length);
@@ -608,7 +634,7 @@ public class AttestationServer {
                 try {
                     final Account account = verifySession(exchange);
                     if (account == null) {
-                        exchange.sendResponseHeaders(400, -1);
+                        exchange.sendResponseHeaders(403, -1);
                         return;
                     }
                     exchange.sendResponseHeaders(200, 0);
@@ -727,7 +753,7 @@ public class AttestationServer {
                 try {
                     final Account account = verifySession(exchange);
                     if (account == null) {
-                        exchange.sendResponseHeaders(400, -1);
+                        exchange.sendResponseHeaders(403, -1);
                         return;
                     }
                     writeDevicesJson(exchange, account.userId);

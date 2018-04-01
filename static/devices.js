@@ -286,9 +286,17 @@ loginForm.onsubmit = function() {
 }
 
 logout.onclick = function() {
-    localStorage.removeItem("requestToken");
-    loginStatus.innerHTML = "";
-    devices.innerHTML = "";
-    logout.style.display = "none";
-    demo();
+    const requestToken = localStorage.getItem("requestToken");
+    fetch("/logout", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
+        if (!response.ok) {
+            return Promise.reject();
+        }
+        localStorage.removeItem("requestToken");
+        loginStatus.innerHTML = "";
+        devices.innerHTML = "";
+        logout.style.display = "none";
+        demo();
+    }).catch(error => {
+        console.log(error);
+    });
 }
