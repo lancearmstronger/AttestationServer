@@ -47,56 +47,6 @@ const devices = document.getElementById("devices");
 const qr = document.getElementById("qr");
 devices.style.display = "block";
 
-create.onclick = function() {
-    createForm.style.display = "block";
-    loginForm.style.display = "none";
-}
-
-createPasswordConfirm.oninput = function() {
-    if (createPassword.value === createPasswordConfirm.value) {
-        createPasswordConfirm.setCustomValidity("");
-    }
-}
-
-createForm.onsubmit = function(event) {
-    event.preventDefault();
-    const password = createPassword.value;
-    if (password !== createPasswordConfirm.value) {
-        createPasswordConfirm.setCustomValidity("Password does not match");
-        createPasswordConfirm.reportValidity();
-        return;
-    }
-    const createJson = JSON.stringify({username: createUsername.value, password: password});
-    fetch("/create_account", {method: "POST", body: createJson}).then(response => {
-        if (!response.ok) {
-            Project.reject();
-        }
-        createForm.style.display = "none";
-    }).catch(error => {
-        console.log(error);
-    });
-}
-
-login.onclick = function() {
-    loginForm.style.display = "block";
-    createForm.style.display = "none";
-}
-
-loginForm.onsubmit = function() {
-    event.preventDefault();
-    const loginJson = JSON.stringify({username: loginUsername.value, password: loginPassword.value});
-    fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
-        if (!response.ok) {
-            Project.reject();
-        }
-        return response.text();
-    }).then(requestToken => {
-        localStorage.setItem("requestToken", requestToken);
-    }).catch(error => {
-        console.log(error);
-    });
-}
-
 const deviceAdminStrings = {
     0: "no",
     1: "yes, with non-system apps",
@@ -128,7 +78,25 @@ function demo() {
     login.style.display = "inline";
 }
 
+function displayLogin(username) {
+    const token = localStorage.getItem("requestToken");
+    loginForm.style.display = "none";
+    loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
+    fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
+        if (!response.ok) {
+            Promise.reject();
+        }
+        return response.blob();
+    }).then(imageBlob => {
+        qr.src = URL.createObjectURL(imageBlob);
+    }).catch(error => {
+        console.log(error);
+    });
+    fetchDevices(false);
+}
+
 function fetchDevices(demo) {
+    const token = localStorage.getItem("requestToken");
     let request;
     if (demo) {
         request = fetch("/devices.json");
@@ -137,7 +105,7 @@ function fetchDevices(demo) {
     }
     request.then(response => {
         if (!response.ok) {
-            Project.reject();
+            Promise.reject();
         }
         return response.json();
     }).then(devicesJson => {
@@ -237,25 +205,73 @@ if (token === null) {
 } else {
     fetch("/username", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
-            Project.reject();
+            Promise.reject();
         }
         return response.text();
     }).then(username => {
-        loginForm.style.display = "none";
-        loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
-        fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
-            if (!response.ok) {
-                Project.reject();
-            }
-            return response.blob();
-        }).then(imageBlob => {
-            qr.src = URL.createObjectURL(imageBlob);
-        }).catch(error => {
-            console.log(error);
-        });
-        fetchDevices(false);
+        displayLogin(username);
     }).catch(error => {
         console.log(error);
         demo();
+    });
+}
+
+create.onclick = function() {
+    createForm.style.display = "block";
+    loginForm.style.display = "none";
+}
+
+createPasswordConfirm.oninput = function() {
+    if (createPassword.value === createPasswordConfirm.value) {
+        createPasswordConfirm.setCustomValidity("");
+    }
+}
+
+createForm.onsubmit = function(event) {
+    event.preventDefault();
+    const password = createPassword.value;
+    if (password !== createPasswordConfirm.value) {
+        createPasswordConfirm.setCustomValidity("Password does not match");
+        createPasswordConfirm.reportValidity();
+        return;
+    }
+    const createJson = JSON.stringify({username: createUsername.value, password: password});
+    fetch("/create_account", {method: "POST", body: createJson}).then(response => {
+        if (!response.ok) {
+            Promise.reject();
+        }
+        createForm.style.display = "none";
+    }).catch(error => {
+        console.log(error);
+    });
+}
+
+login.onclick = function() {
+    loginForm.style.display = "block";
+    createForm.style.display = "none";
+}
+
+loginForm.onsubmit = function() {
+    event.preventDefault();
+    const loginJson = JSON.stringify({username: loginUsername.value, password: loginPassword.value});
+    fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
+        if (!response.ok) {
+            Promise.reject();
+        }
+        return response.text();
+    }).then(requestToken => {
+        localStorage.setItem("requestToken", requestToken);
+        fetch("/username", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
+            if (!response.ok) {
+                Promise.reject();
+            }
+            return response.text();
+        }).then(username => {
+            displayLogin(username);
+        }).catch(error => {
+            console.log(error);
+        });
+    }).catch(error => {
+        console.log(error);
     });
 }
