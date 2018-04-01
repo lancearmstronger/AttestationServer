@@ -19,7 +19,8 @@
         <div id="content">
             <p><strong>Accounts are currently temporary and will be repeatedly removed as the service is developed.</strong></p>
             <button id="create">Create account</button>
-            <button id="login">Login</button>
+            <button id="login" class="hidden">Login</button>
+            <span id="login_status"></span>
             <form id="create_form" class="hidden">
                 <label>Username: <input id="create_username" type="text" autocomplete="username" maxlength="32" pattern="[a-zA-Z0-9]+" required="required"/></label><br/>
                 <label>Password: <input id="create_password" type="password" autocomplete="new-password" maxlength="4096" minlength="8" required="required"/></label><br/>

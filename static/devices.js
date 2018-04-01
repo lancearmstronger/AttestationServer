@@ -42,6 +42,7 @@ const login = document.getElementById("login");
 const loginForm = document.getElementById("login_form");
 const loginUsername = document.getElementById("login_username");
 const loginPassword = document.getElementById("login_password");
+const loginStatus = document.getElementById("login_status");
 const devices = document.getElementById("devices");
 const qr = document.getElementById("qr");
 devices.style.display = "block";
@@ -124,6 +125,7 @@ function toYesNoString(value) {
 function demo() {
     qr.src = "/account.png";
     fetchDevices(true);
+    login.style.display = "inline";
 }
 
 function fetchDevices(demo) {
@@ -239,6 +241,8 @@ if (token === null) {
         }
         return response.text();
     }).then(username => {
+        loginForm.style.display = "none";
+        loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
         fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
             if (!response.ok) {
                 Project.reject();
