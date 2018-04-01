@@ -110,6 +110,7 @@ public class AttestationServer {
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
+                    "sessionId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
                     "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
                     "cookieToken BLOB UNIQUE NOT NULL,\n" +
                     "requestToken BLOB UNIQUE NOT NULL,\n" +
@@ -392,7 +393,7 @@ public class AttestationServer {
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 try {
-                    final Account account = verifySession(exchange);
+                    final Account account = verifySession(exchange, true);
                     if (account == null) {
                         exchange.sendResponseHeaders(403, -1);
                         return;
@@ -440,7 +441,8 @@ public class AttestationServer {
         }
     }
 
-    private static Account verifySession(final HttpExchange exchange) throws IOException, SQLiteException {
+    private static Account verifySession(final HttpExchange exchange, final boolean end)
+            throws IOException, SQLiteException {
         final String cookie = getCookie(exchange, "__Host-session");
         if (cookie == null) {
             return null;
@@ -459,10 +461,10 @@ public class AttestationServer {
 
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
-            open(conn, true);
+            open(conn, !end);
 
             final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, " +
-                    "expiryTime, username, subscribeKey FROM Sessions " +
+                    "expiryTime, username, subscribeKey, sessionId FROM Sessions " +
                     "INNER JOIN Accounts on Accounts.userId = Sessions.userId " +
                     "WHERE Sessions.userId = ?");
             select.bind(1, userId);
@@ -474,6 +476,15 @@ public class AttestationServer {
 
                 if (select.columnLong(2) < System.currentTimeMillis()) {
                     break;
+                }
+
+                if (end) {
+                    final long sessionId = select.columnLong(5);
+                    final SQLiteStatement delete = conn.prepare("DELETE FROM Sessions " +
+                            "WHERE sessionId = ?");
+                    delete.bind(1, sessionId);
+                    delete.step();
+                    delete.dispose();
                 }
 
                 return new Account(userId, select.columnBlob(3), select.columnBlob(4));
@@ -490,7 +501,7 @@ public class AttestationServer {
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 try {
-                    final Account account = verifySession(exchange);
+                    final Account account = verifySession(exchange, false);
                     if (account == null) {
                         exchange.sendResponseHeaders(403, -1);
                         return;
@@ -632,7 +643,7 @@ public class AttestationServer {
                 }
             } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 try {
-                    final Account account = verifySession(exchange);
+                    final Account account = verifySession(exchange, false);
                     if (account == null) {
                         exchange.sendResponseHeaders(403, -1);
                         return;
@@ -751,7 +762,7 @@ public class AttestationServer {
                 writeDevicesJson(exchange, 0);
             } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 try {
-                    final Account account = verifySession(exchange);
+                    final Account account = verifySession(exchange, false);
                     if (account == null) {
                         exchange.sendResponseHeaders(403, -1);
                         return;
