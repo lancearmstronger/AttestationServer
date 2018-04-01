@@ -259,6 +259,7 @@ createForm.onsubmit = function(event) {
         }
         createForm.submit.disabled = false;
         createForm.style.display = "none";
+        formToggles.style.display = "inline";
     }).catch(error => {
         createForm.submit.disabled = false;
         console.log(error);
