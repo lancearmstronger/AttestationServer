@@ -44,7 +44,8 @@ import java.util.Base64;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.DataFormatException;
 
@@ -172,7 +173,7 @@ public class AttestationServer {
         server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/verify", new VerifyHandler());
         server.createContext("/devices.json", new DevicesHandler());
-        server.setExecutor(Executors.newCachedThreadPool());
+        server.setExecutor(new ThreadPoolExecutor(10, 100, 60, TimeUnit.SECONDS, new SynchronousQueue<Runnable>()));
         server.start();
     }
 
