@@ -86,6 +86,7 @@ function displayLogin(username) {
     createForm.style.display = "none";
     login.style.display = "none";
     loginForm.style.display = "none";
+    loginForm.submit.disabled = false;
     logout.style.display = "inline";
     loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
     fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
@@ -245,12 +246,15 @@ createForm.onsubmit = function(event) {
         return;
     }
     const createJson = JSON.stringify({username: createUsername.value, password: password});
+    createForm.submit.disabled = true;
     fetch("/create_account", {method: "POST", body: createJson}).then(response => {
         if (!response.ok) {
             return Promise.reject();
         }
+        createForm.submit.disabled = false;
         createForm.style.display = "none";
     }).catch(error => {
+        createForm.submit.disabled = false;
         console.log(error);
     });
 }
@@ -263,6 +267,7 @@ login.onclick = function() {
 loginForm.onsubmit = function() {
     event.preventDefault();
     const loginJson = JSON.stringify({username: loginUsername.value, password: loginPassword.value});
+    loginForm.submit.disabled = true;
     fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
             return Promise.reject();
@@ -281,22 +286,27 @@ loginForm.onsubmit = function() {
             console.log(error);
         });
     }).catch(error => {
+        loginForm.submit.disabled = false;
         console.log(error);
     });
 }
 
 logout.onclick = function() {
     const requestToken = localStorage.getItem("requestToken");
+    logout.disabled = true;
     fetch("/logout", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
             return Promise.reject();
         }
+
         localStorage.removeItem("requestToken");
         loginStatus.innerHTML = "";
         devices.innerHTML = "";
         logout.style.display = "none";
+        logout.disabled = false;
         demo();
     }).catch(error => {
+        logout.disabled = false;
         console.log(error);
     });
 }
