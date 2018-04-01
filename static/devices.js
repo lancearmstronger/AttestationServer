@@ -210,6 +210,9 @@ if (token === null) {
     demo();
 } else {
     fetch("/username", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
+        if (response.status == 403) {
+            localStorage.removeItem("requestToken");
+        }
         if (!response.ok) {
             return Promise.reject();
         }
