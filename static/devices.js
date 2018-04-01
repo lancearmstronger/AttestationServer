@@ -75,6 +75,7 @@ function toYesNoString(value) {
 function demo() {
     qr.src = "/account.png";
     fetchDevices(true);
+    create.style.display = "inline";
     login.style.display = "inline";
 }
 
