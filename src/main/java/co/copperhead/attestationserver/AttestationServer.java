@@ -263,12 +263,12 @@ public class AttestationServer {
     }
 
     private static class Session {
-        final long userId;
+        final long sessionId;
         final byte[] cookieToken;
         final byte[] requestToken;
 
-        Session(final long userId, final byte[] cookieToken, final byte[] requestToken) {
-            this.userId = userId;
+        Session(final long sessionId, final byte[] cookieToken, final byte[] requestToken) {
+            this.sessionId = sessionId;
             this.cookieToken = cookieToken;
             this.requestToken = requestToken;
         }
@@ -311,7 +311,7 @@ public class AttestationServer {
             insert.step();
             insert.dispose();
 
-            return new Session(userId, cookieToken, requestToken);
+            return new Session(conn.getLastInsertId(), cookieToken, requestToken);
         } finally {
             conn.dispose();
         }
@@ -377,7 +377,7 @@ public class AttestationServer {
                 final byte[] requestToken = encoder.encode(session.requestToken);
                 exchange.getResponseHeaders().set("Set-Cookie",
                         String.format("__Host-session=%d|%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d",
-                            session.userId, new String(encoder.encode(session.cookieToken)),
+                            session.sessionId, new String(encoder.encode(session.cookieToken)),
                             SESSION_LENGTH / 1000));
                 exchange.sendResponseHeaders(200, requestToken.length);
                 try (final OutputStream output = exchange.getResponseBody()) {
@@ -489,7 +489,7 @@ public class AttestationServer {
             exchange.sendResponseHeaders(403, -1);
             return null;
         }
-        final long userId = Long.parseLong(session[0]);
+        final long sessionId = Long.parseLong(session[0]);
         final byte[] cookieToken = Base64.getDecoder().decode(session[1]);
 
         final byte[] requestTokenEncoded = new byte[session[1].length()];
@@ -502,37 +502,33 @@ public class AttestationServer {
             open(conn, !end);
 
             final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, " +
-                    "expiryTime, username, subscribeKey, sessionId FROM Sessions " +
+                    "expiryTime, username, subscribeKey, Accounts.userId FROM Sessions " +
                     "INNER JOIN Accounts on Accounts.userId = Sessions.userId " +
-                    "WHERE Sessions.userId = ?");
-            select.bind(1, userId);
-            while (select.step()) {
-                if (!MessageDigest.isEqual(cookieToken, select.columnBlob(0)) ||
-                        !MessageDigest.isEqual(requestToken, select.columnBlob(1))) {
-                    continue;
-                }
-
-                if (select.columnLong(2) < System.currentTimeMillis()) {
-                    break;
-                }
-
-                if (end) {
-                    final long sessionId = select.columnLong(5);
-                    final SQLiteStatement delete = conn.prepare("DELETE FROM Sessions " +
-                            "WHERE sessionId = ?");
-                    delete.bind(1, sessionId);
-                    delete.step();
-                    delete.dispose();
-                }
-
-                return new Account(userId, select.columnBlob(3), select.columnBlob(4));
+                    "WHERE sessionId = ?");
+            select.bind(1, sessionId);
+            if (!select.step() || !MessageDigest.isEqual(cookieToken, select.columnBlob(0)) ||
+                    !MessageDigest.isEqual(requestToken, select.columnBlob(1))) {
+                exchange.sendResponseHeaders(403, -1);
+                return null;
             }
+
+            if (select.columnLong(2) < System.currentTimeMillis()) {
+                exchange.sendResponseHeaders(403, -1);
+                return null;
+            }
+
+            if (end) {
+                final SQLiteStatement delete = conn.prepare("DELETE FROM Sessions " +
+                        "WHERE sessionId = ?");
+                delete.bind(1, sessionId);
+                delete.step();
+                delete.dispose();
+            }
+
+            return new Account(select.columnLong(5), select.columnBlob(3), select.columnBlob(4));
         } finally {
             conn.dispose();
         }
-
-        exchange.sendResponseHeaders(403, -1);
-        return null;
     }
 
     private static class UsernameHandler implements HttpHandler {
