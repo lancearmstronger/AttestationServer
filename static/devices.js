@@ -45,6 +45,8 @@ const loginPassword = document.getElementById("login_password");
 const loginStatus = document.getElementById("login_status");
 const formToggles = document.getElementById("form_toggles");
 const logout = document.getElementById("logout");
+const logoutEverywhere = document.getElementById("logout_everywhere");
+const logoutButtons = document.getElementById("logout_buttons");
 const devices = document.getElementById("devices");
 const qr = document.getElementById("qr");
 devices.style.display = "block";
@@ -87,7 +89,7 @@ function displayLogin(username) {
     createForm.style.display = "none";
     loginForm.style.display = "none";
     loginForm.submit.disabled = false;
-    logout.style.display = "inline";
+    logoutButtons.style.display = "inline";
     loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
     devices.innerHTML = "";
     qr.src = "";
@@ -295,26 +297,32 @@ loginForm.onsubmit = function(event) {
     });
 }
 
-logout.onclick = function() {
-    const requestToken = localStorage.getItem("requestToken");
-    logout.disabled = true;
-    fetch("/logout", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
-        if (!response.ok) {
-            return Promise.reject();
-        }
+for (const logoutButton of document.getElementsByClassName("logout")) {
+    logoutButton.onclick = function() {
+        const requestToken = localStorage.getItem("requestToken");
+        logout.disabled = true;
+        logoutEverywhere.disabled = true;
+        const path = logoutButton === logout ? "/logout" : "/logout_everywhere";
+        fetch(path, {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
+            if (!response.ok) {
+                return Promise.reject();
+            }
 
-        localStorage.removeItem("requestToken");
-        loginStatus.innerHTML = "";
-        devices.innerHTML = "";
-        qr.src = "";
-        qr.alt = "";
-        logout.style.display = "none";
-        logout.disabled = false;
-        demo();
-    }).catch(error => {
-        logout.disabled = false;
-        console.log(error);
-    });
+            localStorage.removeItem("requestToken");
+            loginStatus.innerHTML = "";
+            devices.innerHTML = "";
+            qr.src = "";
+            qr.alt = "";
+            logoutButtons.style.display = "none";
+            logout.disabled = false;
+            logoutEverywhere.disabled = false;
+            demo();
+        }).catch(error => {
+            logout.disabled = false;
+            logoutEverywhere.disabled = false;
+            console.log(error);
+        });
+    }
 }
 
 for (const cancel of document.getElementsByClassName("cancel")) {

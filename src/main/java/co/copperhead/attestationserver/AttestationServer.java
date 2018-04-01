@@ -167,6 +167,7 @@ public class AttestationServer {
         server.createContext("/create_account", new CreateAccountHandler());
         server.createContext("/login", new LoginHandler());
         server.createContext("/logout", new LogoutHandler());
+        server.createContext("/logout_everywhere", new LogoutEverywhereHandler());
         server.createContext("/username", new UsernameHandler());
         server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/verify", new VerifyHandler());
@@ -397,6 +398,42 @@ public class AttestationServer {
                     if (account == null) {
                         exchange.sendResponseHeaders(403, -1);
                         return;
+                    }
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                }
+                exchange.getResponseHeaders().set("Set-Cookie",
+                        "__Host-session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
+                exchange.sendResponseHeaders(200, -1);
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+    private static class LogoutEverywhereHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                try {
+                    final Account account = verifySession(exchange, false);
+                    if (account == null) {
+                        exchange.sendResponseHeaders(403, -1);
+                        return;
+                    }
+                    final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                    try {
+                        open(conn, false);
+
+                        final SQLiteStatement select = conn.prepare("DELETE from Sessions where userId = ?");
+                        select.bind(1, account.userId);
+                        select.step();
+                        select.dispose();
+                    } finally {
+                        conn.dispose();
                     }
                 } catch (final SQLiteException e) {
                     e.printStackTrace();
