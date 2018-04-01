@@ -60,7 +60,7 @@ nav ul li a {
     display: none;
 }
 
-button {
+button, input[type="submit"] {
     background-color: #d6d7d7;
     border: none;
     border-radius: 2px;
