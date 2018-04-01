@@ -89,6 +89,8 @@ function displayLogin(username) {
     loginForm.submit.disabled = false;
     logout.style.display = "inline";
     loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
+    devices.innerHTML = "";
+    qr.src = "";
     fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
             return Promise.reject();
@@ -302,6 +304,7 @@ logout.onclick = function() {
         localStorage.removeItem("requestToken");
         loginStatus.innerHTML = "";
         devices.innerHTML = "";
+        qr.src = "";
         logout.style.display = "none";
         logout.disabled = false;
         demo();
