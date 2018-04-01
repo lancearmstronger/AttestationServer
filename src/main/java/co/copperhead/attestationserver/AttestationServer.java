@@ -104,17 +104,17 @@ public class AttestationServer {
                     "CREATE TABLE IF NOT EXISTS Accounts (\n" +
                     "userId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
                     "username TEXT UNIQUE NOT NULL,\n" +
-                    "passwordHash BLOB UNIQUE NOT NULL,\n" +
-                    "passwordSalt BLOB UNIQUE NOT NULL,\n" +
-                    "subscribeKey BLOB UNIQUE NOT NULL,\n" +
+                    "passwordHash BLOB NOT NULL,\n" +
+                    "passwordSalt BLOB NOT NULL,\n" +
+                    "subscribeKey BLOB NOT NULL,\n" +
                     "creationTime INTEGER NOT NULL\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
                     "sessionId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
                     "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
-                    "cookieToken BLOB UNIQUE NOT NULL,\n" +
-                    "requestToken BLOB UNIQUE NOT NULL,\n" +
+                    "cookieToken BLOB NOT NULL,\n" +
+                    "requestToken BLOB NOT NULL,\n" +
                     "expiryTime INTEGER NOT NULL\n" +
                     ")");
             attestationConn.exec("CREATE INDEX IF NOT EXISTS sessionExpiryTimeIndex " +
