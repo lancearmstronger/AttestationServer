@@ -317,3 +317,9 @@ logout.onclick = function() {
         console.log(error);
     });
 }
+
+for (const cancel of document.getElementsByClassName("cancel")) {
+    cancel.onclick = function() {
+        this.parentElement.style.display = "none";
+    }
+}

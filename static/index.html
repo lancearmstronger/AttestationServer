@@ -27,11 +27,13 @@
                 <label>Password: <input id="create_password" type="password" autocomplete="new-password" maxlength="4096" minlength="8" required="required"/></label><br/>
                 <label>Confirm password: <input id="create_password_confirm" type="password" autocomplete="new-password" maxlength="4096" minlength="8" required="required"/></label><br/>
                 <input name="submit" type="submit"/>
+                <button type="button" class="cancel">Cancel</button>
             </form>
             <form id="login_form" class="hidden">
                 <label>Username: <input id="login_username" type="text" autocomplete="username" maxlength="32" pattern="[a-zA-Z0-9]+" required="required"/></label><br/>
                 <label>Password: <input id="login_password" type="password" autocomplete="current-password" maxlength="4096" minlength="8" required="required"/></label><br/>
                 <input name="submit" type="submit"/>
+                <button type="button" class="cancel">Cancel</button>
             </form>
             <h1>Device integrity monitoring demo</h1>
             <p>This page is a very early demonstration of the remote attestation service using a public demo account. We'll be implementing a proper monitoring interface and adding support for real accounts in the near future. The demo account is currently configured to ask the client to submit attestations every hour.</p>
