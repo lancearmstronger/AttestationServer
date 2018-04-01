@@ -397,7 +397,6 @@ public class AttestationServer {
                 try {
                     final Account account = verifySession(exchange, true);
                     if (account == null) {
-                        exchange.sendResponseHeaders(403, -1);
                         return;
                     }
                 } catch (final SQLiteException e) {
@@ -422,7 +421,6 @@ public class AttestationServer {
                 try {
                     final Account account = verifySession(exchange, false);
                     if (account == null) {
-                        exchange.sendResponseHeaders(403, -1);
                         return;
                     }
                     final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
@@ -483,10 +481,12 @@ public class AttestationServer {
             throws IOException, SQLiteException {
         final String cookie = getCookie(exchange, "__Host-session");
         if (cookie == null) {
+            exchange.sendResponseHeaders(403, -1);
             return null;
         }
         final String[] session = cookie.split("\\|", 2);
         if (session.length != 2) {
+            exchange.sendResponseHeaders(403, -1);
             return null;
         }
         final long userId = Long.parseLong(session[0]);
@@ -531,6 +531,7 @@ public class AttestationServer {
             conn.dispose();
         }
 
+        exchange.sendResponseHeaders(403, -1);
         return null;
     }
 
@@ -541,7 +542,6 @@ public class AttestationServer {
                 try {
                     final Account account = verifySession(exchange, false);
                     if (account == null) {
-                        exchange.sendResponseHeaders(403, -1);
                         return;
                     }
                     exchange.sendResponseHeaders(200, account.username.length);
@@ -683,7 +683,6 @@ public class AttestationServer {
                 try {
                     final Account account = verifySession(exchange, false);
                     if (account == null) {
-                        exchange.sendResponseHeaders(403, -1);
                         return;
                     }
                     exchange.sendResponseHeaders(200, 0);
@@ -802,7 +801,6 @@ public class AttestationServer {
                 try {
                     final Account account = verifySession(exchange, false);
                     if (account == null) {
-                        exchange.sendResponseHeaders(403, -1);
                         return;
                     }
                     writeDevicesJson(exchange, account.userId);
