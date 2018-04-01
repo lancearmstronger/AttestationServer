@@ -134,31 +134,31 @@ function fetchDevices(demo) {
 
             const info = document.createElement("p");
             info.innerHTML = `<h2 class="fingerprint">${fingerprint}</h2>
-    <h3>Verified device information:</h3>
-    Device: ${device.name}<br/>
-    OS: ${device.os}<br/>
-    OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
-    OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
-    <button class="toggle">show advanced information</button><span class="hidden"><br/>
-    Certificate 0 (persistent Auditor key): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate0}</pre><br/>
-    Certificate 1 (batch): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate1}</pre><br/>
-    Certificate 2 (intermediate): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate2}</pre><br/>
-    Certificate 3 (root): <button class="toggle">show</button><pre class="hidden"><br/>${attestationRoot}</pre><br/>
-    Verified boot key fingerprint: <span class="fingerprint">${device.verifiedBootKey}</span>
-    </span>
-    <h3>Information provided by the verified OS:</h3>
-    Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
-    User profile secure: ${toYesNoString(device.userProfileSecure)}<br/>
-    Enrolled fingerprints: ${toYesNoString(device.enrolledFingerprints)}<br/>
-    Accessibility service(s) enabled: ${toYesNoString(device.accessibility)}<br/>
-    Device administrator(s) enabled: ${deviceAdminStrings[device.deviceAdmin]}<br/>
-    Android Debug Bridge enabled: ${toYesNoString(device.adbEnabled)}<br/>
-    Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
-    Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
-    <h3>Attestation history</h3>
-    First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
-    Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
-    <button class="toggle">show detailed history</button><div id="history-${device.fingerprint}" class="hidden"></div>`
+<h3>Verified device information:</h3>
+Device: ${device.name}<br/>
+OS: ${device.os}<br/>
+OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
+OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
+<button class="toggle">show advanced information</button><span class="hidden"><br/>
+Certificate 0 (persistent Auditor key): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate0}</pre><br/>
+Certificate 1 (batch): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate1}</pre><br/>
+Certificate 2 (intermediate): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate2}</pre><br/>
+Certificate 3 (root): <button class="toggle">show</button><pre class="hidden"><br/>${attestationRoot}</pre><br/>
+Verified boot key fingerprint: <span class="fingerprint">${device.verifiedBootKey}</span>
+</span>
+<h3>Information provided by the verified OS:</h3>
+Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
+User profile secure: ${toYesNoString(device.userProfileSecure)}<br/>
+Enrolled fingerprints: ${toYesNoString(device.enrolledFingerprints)}<br/>
+Accessibility service(s) enabled: ${toYesNoString(device.accessibility)}<br/>
+Device administrator(s) enabled: ${deviceAdminStrings[device.deviceAdmin]}<br/>
+Android Debug Bridge enabled: ${toYesNoString(device.adbEnabled)}<br/>
+Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
+Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
+<h3>Attestation history</h3>
+First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
+Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
+<button class="toggle">show detailed history</button><div id="history-${device.fingerprint}" class="hidden"></div>`
             devices.append(info);
 
             const history = document.getElementById("history-" + device.fingerprint);
