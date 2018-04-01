@@ -75,6 +75,7 @@ function toYesNoString(value) {
 
 function demo() {
     qr.src = "/account.png";
+    qr.alt = "demo account QR code";
     fetchDevices(true);
     create.style.display = "inline";
     login.style.display = "inline";
@@ -91,6 +92,7 @@ function displayLogin(username) {
     loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
     devices.innerHTML = "";
     qr.src = "";
+    qr.alt = "";
     fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
             return Promise.reject();
@@ -98,6 +100,7 @@ function displayLogin(username) {
         return response.blob();
     }).then(imageBlob => {
         qr.src = URL.createObjectURL(imageBlob);
+        qr.alt = "account QR code";
     }).catch(error => {
         console.log(error);
     });
@@ -305,6 +308,7 @@ logout.onclick = function() {
         loginStatus.innerHTML = "";
         devices.innerHTML = "";
         qr.src = "";
+        qr.alt = "";
         logout.style.display = "none";
         logout.disabled = false;
         demo();
