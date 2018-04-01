@@ -43,6 +43,7 @@ const loginForm = document.getElementById("login_form");
 const loginUsername = document.getElementById("login_username");
 const loginPassword = document.getElementById("login_password");
 const loginStatus = document.getElementById("login_status");
+const logout = document.getElementById("logout");
 const devices = document.getElementById("devices");
 const qr = document.getElementById("qr");
 devices.style.display = "block";
@@ -81,7 +82,11 @@ function demo() {
 
 function displayLogin(username) {
     const token = localStorage.getItem("requestToken");
+    create.style.display = "none";
+    createForm.style.display = "none";
+    login.style.display = "none";
     loginForm.style.display = "none";
+    logout.style.display = "inline";
     loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
     fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
@@ -275,4 +280,12 @@ loginForm.onsubmit = function() {
     }).catch(error => {
         console.log(error);
     });
+}
+
+logout.onclick = function() {
+    localStorage.removeItem("requestToken");
+    loginStatus.innerHTML = "";
+    devices.innerHTML = "";
+    logout.style.display = "none";
+    demo();
 }
