@@ -60,6 +60,8 @@ import javax.json.JsonWriter;
 
 import attestationserver.AttestationProtocol.DeviceInfo;
 
+import static com.almworks.sqlite4java.SQLiteConstants.SQLITE_CONSTRAINT_UNIQUE;
+
 import static attestationserver.AttestationProtocol.fingerprintsCopperheadOS;
 import static attestationserver.AttestationProtocol.fingerprintsStock;
 
@@ -258,6 +260,11 @@ public class AttestationServer {
             insert.bind(5, System.currentTimeMillis());
             insert.step();
             insert.dispose();
+        } catch (final SQLiteException e) {
+            if (e.getErrorCode() == SQLITE_CONSTRAINT_UNIQUE) {
+                throw new GeneralSecurityException("username already registered");
+            }
+            throw e;
         } finally {
             conn.dispose();
         }
@@ -332,13 +339,17 @@ public class AttestationServer {
                     password = object.getString("password");
                 } catch (final ClassCastException | JsonException | NullPointerException e) {
                     e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
+                    exchange.sendResponseHeaders(400, -1);
                     return;
                 }
 
                 try {
                     createAccount(username, password);
-                } catch (final GeneralSecurityException | SQLiteException e) {
+                } catch (final GeneralSecurityException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                } catch (final SQLiteException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(500, -1);
                     return;
