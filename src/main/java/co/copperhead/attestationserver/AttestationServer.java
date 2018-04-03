@@ -282,13 +282,15 @@ public class AttestationServer {
             final SQLiteStatement select = conn.prepare("SELECT userId, passwordHash, " +
                     "passwordSalt FROM Accounts WHERE username = ?");
             select.bind(1, username);
-            select.step();
+            if (!select.step()) {
+                throw new GeneralSecurityException("invalid username");
+            }
             final long userId = select.columnLong(0);
             final byte[] passwordHash = select.columnBlob(1);
             final byte[] passwordSalt = select.columnBlob(2);
             select.dispose();
             if (!MessageDigest.isEqual(hash(password.getBytes(), passwordSalt), passwordHash)) {
-                throw new GeneralSecurityException("invalid credentials");
+                throw new GeneralSecurityException("invalid password");
             }
 
             final long now = System.currentTimeMillis();
@@ -361,14 +363,18 @@ public class AttestationServer {
                     password = object.getString("password");
                 } catch (final ClassCastException | JsonException | NullPointerException e) {
                     e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
+                    exchange.sendResponseHeaders(400, -1);
                     return;
                 }
 
                 final Session session;
                 try {
                     session = login(username, password);
-                } catch (final GeneralSecurityException | SQLiteException e) {
+                } catch (final GeneralSecurityException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(403, -1);
+                    return;
+                } catch (final SQLiteException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(500, -1);
                     return;
