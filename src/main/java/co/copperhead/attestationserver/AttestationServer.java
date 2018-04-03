@@ -24,6 +24,7 @@ import org.bouncycastle.crypto.generators.SCrypt;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -394,14 +395,8 @@ public class AttestationServer {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                try {
-                    final Account account = verifySession(exchange, true);
-                    if (account == null) {
-                        return;
-                    }
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
+                final Account account = verifySession(exchange, true);
+                if (account == null) {
                     return;
                 }
                 exchange.getResponseHeaders().set("Set-Cookie",
@@ -478,7 +473,7 @@ public class AttestationServer {
     }
 
     private static Account verifySession(final HttpExchange exchange, final boolean end)
-            throws IOException, SQLiteException {
+            throws IOException {
         final String cookie = getCookie(exchange, "__Host-session");
         if (cookie == null) {
             exchange.sendResponseHeaders(403, -1);
@@ -494,7 +489,12 @@ public class AttestationServer {
 
         final byte[] requestTokenEncoded = new byte[session[1].length()];
         final DataInputStream input = new DataInputStream(exchange.getRequestBody());
-        input.readFully(requestTokenEncoded);
+        try {
+            input.readFully(requestTokenEncoded);
+        } catch (final EOFException e) {
+            exchange.sendResponseHeaders(403, -1);
+            return null;
+        }
         final byte[] requestToken = Base64.getDecoder().decode(requestTokenEncoded);
 
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
@@ -526,6 +526,9 @@ public class AttestationServer {
             }
 
             return new Account(select.columnLong(5), select.columnBlob(3), select.columnBlob(4));
+        } catch (final SQLiteException e) {
+            exchange.sendResponseHeaders(500, -1);
+            return null;
         } finally {
             conn.dispose();
         }
@@ -535,21 +538,15 @@ public class AttestationServer {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                try {
-                    final Account account = verifySession(exchange, false);
-                    if (account == null) {
-                        return;
-                    }
-                    exchange.sendResponseHeaders(200, account.username.length);
-                    try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(account.username);
-                    }
-                    return;
-                } catch (final IOException | SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(400, -1);
+                final Account account = verifySession(exchange, false);
+                if (account == null) {
                     return;
                 }
+                exchange.sendResponseHeaders(200, account.username.length);
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    output.write(account.username);
+                }
+                return;
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
@@ -676,24 +673,18 @@ public class AttestationServer {
                     createQrCode(contents.getBytes(), output);
                 }
             } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                try {
-                    final Account account = verifySession(exchange, false);
-                    if (account == null) {
-                        return;
-                    }
-                    exchange.sendResponseHeaders(200, 0);
-                    try (final OutputStream output = exchange.getResponseBody()) {
-                        final String contents = "attestation.copperhead.co " +
-                            BaseEncoding.base16().encode(account.subscribeKey) + " " +
-                            VERIFY_INTERVAL;
-                        createQrCode(contents.getBytes(), output);
-                    }
-                    return;
-                } catch (final IOException | SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(400, -1);
+                final Account account = verifySession(exchange, false);
+                if (account == null) {
                     return;
                 }
+                exchange.sendResponseHeaders(200, 0);
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    final String contents = "attestation.copperhead.co " +
+                        BaseEncoding.base16().encode(account.subscribeKey) + " " +
+                        VERIFY_INTERVAL;
+                    createQrCode(contents.getBytes(), output);
+                }
+                return;
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
                 exchange.sendResponseHeaders(405, -1);
@@ -794,18 +785,12 @@ public class AttestationServer {
             if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
                 writeDevicesJson(exchange, 0);
             } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                try {
-                    final Account account = verifySession(exchange, false);
-                    if (account == null) {
-                        return;
-                    }
-                    writeDevicesJson(exchange, account.userId);
-                    return;
-                } catch (final IOException | SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(400, -1);
+                final Account account = verifySession(exchange, false);
+                if (account == null) {
                     return;
                 }
+                writeDevicesJson(exchange, account.userId);
+                return;
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
                 exchange.sendResponseHeaders(405, -1);
