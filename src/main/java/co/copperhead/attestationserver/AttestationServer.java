@@ -460,15 +460,18 @@ public class AttestationServer {
     }
 
     private static String getCookie(final HttpExchange exchange, final String key) {
-        final List<String> cookies = exchange.getRequestHeaders().get("Cookie");
-        if (cookies == null) {
+        final List<String> cookieHeaders = exchange.getRequestHeaders().get("Cookie");
+        if (cookieHeaders == null) {
             return null;
         }
-        for (final String cookie : cookies) {
-            final String[] keyValue = cookie.split("=", 2);
-            if (keyValue.length == 2) {
-                if (keyValue[0].equals(key)) {
-                    return keyValue[1];
+        for (final String cookieHeader : cookieHeaders) {
+            final String[] cookies = cookieHeader.split(";");
+            for (final String cookie : cookies) {
+                final String[] keyValue = cookie.trim().split("=", 2);
+                if (keyValue.length == 2) {
+                    if (keyValue[0].equals(key)) {
+                        return keyValue[1];
+                    }
                 }
             }
         }
