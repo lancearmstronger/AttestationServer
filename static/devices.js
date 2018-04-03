@@ -243,38 +243,8 @@ createPasswordConfirm.oninput = function() {
     }
 }
 
-createForm.onsubmit = function(event) {
-    event.preventDefault();
-    const password = createPassword.value;
-    if (password !== createPasswordConfirm.value) {
-        createPasswordConfirm.setCustomValidity("Password does not match");
-        createPasswordConfirm.reportValidity();
-        return;
-    }
-    const createJson = JSON.stringify({username: createUsername.value, password: password});
-    createForm.submit.disabled = true;
-    fetch("/create_account", {method: "POST", body: createJson}).then(response => {
-        if (!response.ok) {
-            return Promise.reject();
-        }
-        createForm.submit.disabled = false;
-        createForm.style.display = "none";
-        formToggles.style.display = "inline";
-    }).catch(error => {
-        createForm.submit.disabled = false;
-        console.log(error);
-    });
-}
-
-login.onclick = function() {
-    formToggles.style.display = "none";
-    loginForm.style.display = "block";
-}
-
-loginForm.onsubmit = function(event) {
-    event.preventDefault();
-    const loginJson = JSON.stringify({username: loginUsername.value, password: loginPassword.value});
-    loginForm.submit.disabled = true;
+function doLogin(username, password) {
+    const loginJson = JSON.stringify({username: username, password: password});
     fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
             return Promise.reject();
@@ -296,6 +266,41 @@ loginForm.onsubmit = function(event) {
         loginForm.submit.disabled = false;
         console.log(error);
     });
+}
+
+createForm.onsubmit = function(event) {
+    event.preventDefault();
+    const password = createPassword.value;
+    if (password !== createPasswordConfirm.value) {
+        createPasswordConfirm.setCustomValidity("Password does not match");
+        createPasswordConfirm.reportValidity();
+        return;
+    }
+    const username = createUsername.value;
+    const createJson = JSON.stringify({username: username, password: password});
+    createForm.submit.disabled = true;
+    fetch("/create_account", {method: "POST", body: createJson}).then(response => {
+        if (!response.ok) {
+            return Promise.reject();
+        }
+        createForm.submit.disabled = false;
+        createForm.style.display = "none";
+        doLogin(username, password);
+    }).catch(error => {
+        createForm.submit.disabled = false;
+        console.log(error);
+    });
+}
+
+login.onclick = function() {
+    formToggles.style.display = "none";
+    loginForm.style.display = "block";
+}
+
+loginForm.onsubmit = function(event) {
+    event.preventDefault();
+    loginForm.submit.disabled = true;
+    doLogin(loginUsername.value, loginPassword.value);
 }
 
 for (const logoutButton of document.getElementsByClassName("logout")) {
