@@ -399,8 +399,7 @@ public class AttestationServer {
                 if (account == null) {
                     return;
                 }
-                exchange.getResponseHeaders().set("Set-Cookie",
-                        "__Host-session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
+                clearCookie(exchange);
                 exchange.sendResponseHeaders(200, -1);
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");
@@ -434,8 +433,7 @@ public class AttestationServer {
                     exchange.sendResponseHeaders(500, -1);
                     return;
                 }
-                exchange.getResponseHeaders().set("Set-Cookie",
-                        "__Host-session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
+                clearCookie(exchange);
                 exchange.sendResponseHeaders(200, -1);
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");
@@ -472,6 +470,11 @@ public class AttestationServer {
         }
     }
 
+    private static void clearCookie(final HttpExchange exchange) {
+        exchange.getResponseHeaders().set("Set-Cookie",
+                "__Host-session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
+    }
+
     private static Account verifySession(final HttpExchange exchange, final boolean end)
             throws IOException {
         final String cookie = getCookie(exchange, "__Host-session");
@@ -481,6 +484,7 @@ public class AttestationServer {
         }
         final String[] session = cookie.split("\\|", 2);
         if (session.length != 2) {
+            clearCookie(exchange);
             exchange.sendResponseHeaders(403, -1);
             return null;
         }
@@ -492,6 +496,7 @@ public class AttestationServer {
         try {
             input.readFully(requestTokenEncoded);
         } catch (final EOFException e) {
+            clearCookie(exchange);
             exchange.sendResponseHeaders(403, -1);
             return null;
         }
@@ -508,11 +513,13 @@ public class AttestationServer {
             select.bind(1, sessionId);
             if (!select.step() || !MessageDigest.isEqual(cookieToken, select.columnBlob(0)) ||
                     !MessageDigest.isEqual(requestToken, select.columnBlob(1))) {
+                clearCookie(exchange);
                 exchange.sendResponseHeaders(403, -1);
                 return null;
             }
 
             if (select.columnLong(2) < System.currentTimeMillis()) {
+                clearCookie(exchange);
                 exchange.sendResponseHeaders(403, -1);
                 return null;
             }
