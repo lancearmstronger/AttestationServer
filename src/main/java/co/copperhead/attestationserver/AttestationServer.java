@@ -173,7 +173,7 @@ public class AttestationServer {
         server.createContext("/login", new LoginHandler());
         server.createContext("/logout", new LogoutHandler());
         server.createContext("/logout_everywhere", new LogoutEverywhereHandler());
-        server.createContext("/username", new UsernameHandler());
+        server.createContext("/account", new AccountHandler());
         server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/verify", new VerifyHandler());
         server.createContext("/devices.json", new DevicesHandler());
@@ -481,11 +481,11 @@ public class AttestationServer {
 
     private static class Account {
         final long userId;
-        final byte[] username;
+        final String username;
         final byte[] subscribeKey;
         final int verifyInterval;
 
-        Account(final long userId, final byte[] username, final byte[] subscribeKey,
+        Account(final long userId, final String username, final byte[] subscribeKey,
                 final int verifyInterval) {
             this.userId = userId;
             this.username = username;
@@ -557,7 +557,7 @@ public class AttestationServer {
                 delete.dispose();
             }
 
-            return new Account(select.columnLong(5), select.columnBlob(3), select.columnBlob(4),
+            return new Account(select.columnLong(5), select.columnString(3), select.columnBlob(4),
                     select.columnInt(6));
         } catch (final SQLiteException e) {
             exchange.sendResponseHeaders(500, -1);
@@ -567,7 +567,7 @@ public class AttestationServer {
         }
     }
 
-    private static class UsernameHandler implements HttpHandler {
+    private static class AccountHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
@@ -575,9 +575,13 @@ public class AttestationServer {
                 if (account == null) {
                     return;
                 }
-                exchange.sendResponseHeaders(200, account.username.length);
-                try (final OutputStream output = exchange.getResponseBody()) {
-                    output.write(account.username);
+                final JsonObjectBuilder accountJson = Json.createObjectBuilder();
+                accountJson.add("username", account.username);
+                accountJson.add("verifyInterval", account.verifyInterval);
+                exchange.sendResponseHeaders(200, 0);
+                try (final OutputStream output = exchange.getResponseBody();
+                        final JsonWriter writer = Json.createWriter(output)) {
+                    writer.write(accountJson.build());
                 }
                 return;
             } else {

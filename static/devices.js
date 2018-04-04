@@ -47,6 +47,7 @@ const formToggles = document.getElementById("form_toggles");
 const logout = document.getElementById("logout");
 const logoutEverywhere = document.getElementById("logout_everywhere");
 const logoutButtons = document.getElementById("logout_buttons");
+const configuration = document.getElementById("configuration");
 const devices = document.getElementById("devices");
 const qr = document.getElementById("qr");
 devices.style.display = "block";
@@ -83,14 +84,16 @@ function demo() {
     formToggles.style.display = "inline";
 }
 
-function displayLogin(username) {
+function displayLogin(account) {
     const token = localStorage.getItem("requestToken");
     formToggles.style.display = "none";
     createForm.style.display = "none";
     loginForm.style.display = "none";
     loginForm.submit.disabled = false;
     logoutButtons.style.display = "inline";
-    loginStatus.innerHTML = `Logged in as <strong>${username}</strong>.`
+    loginStatus.innerHTML = `Logged in as <strong>${account.username}</strong>.`
+    configuration.style.display = "inline";
+    configuration.verify_interval.value = account.verifyInterval / 60 / 60;
     devices.innerHTML = "";
     qr.src = "";
     qr.alt = "";
@@ -216,16 +219,16 @@ const token = localStorage.getItem("requestToken");
 if (token === null) {
     demo();
 } else {
-    fetch("/username", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
+    fetch("/account", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (response.status == 403) {
             localStorage.removeItem("requestToken");
         }
         if (!response.ok) {
             return Promise.reject();
         }
-        return response.text();
-    }).then(username => {
-        displayLogin(username);
+        return response.json();
+    }).then(account => {
+        displayLogin(account);
     }).catch(error => {
         console.log(error);
         demo();
@@ -252,13 +255,13 @@ function doLogin(username, password) {
         return response.text();
     }).then(requestToken => {
         localStorage.setItem("requestToken", requestToken);
-        fetch("/username", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
+        fetch("/account", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
             if (!response.ok) {
                 return Promise.reject();
             }
-            return response.text();
-        }).then(username => {
-            displayLogin(username);
+            return response.json();
+        }).then(account => {
+            displayLogin(account);
         }).catch(error => {
             console.log(error);
         });
@@ -316,6 +319,7 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
 
             localStorage.removeItem("requestToken");
             loginStatus.innerHTML = "";
+            configuration.style.display = "none";
             devices.innerHTML = "";
             qr.src = "";
             qr.alt = "";
@@ -336,4 +340,9 @@ for (const cancel of document.getElementsByClassName("cancel")) {
         this.parentElement.style.display = "none";
         formToggles.style.display = "inline";
     }
+}
+
+configuration.onsubmit = function(event) {
+    event.preventDefault();
+    console.log("not implemented");
 }
