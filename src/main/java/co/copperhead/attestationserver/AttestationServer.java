@@ -235,7 +235,8 @@ public class AttestationServer {
         return SCrypt.generate(password, salt, 32768, 8, 1, 32);
     }
 
-    private static void createAccount(final String username, final String password) throws GeneralSecurityException, SQLiteException {
+    private static void createAccount(final String username, final String password)
+            throws GeneralSecurityException, SQLiteException {
         if (username.length() > 32 || !username.matches("[a-zA-Z0-9]+")) {
             throw new GeneralSecurityException("invalid username");
         }
@@ -285,7 +286,8 @@ public class AttestationServer {
         }
     }
 
-    private static Session login(final String username, final String password) throws GeneralSecurityException, SQLiteException {
+    private static Session login(final String username, final String password)
+            throws GeneralSecurityException, SQLiteException {
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
             open(conn, false);
@@ -595,98 +597,6 @@ public class AttestationServer {
         }
     }
 
-    private static class VerifyHandler implements HttpHandler {
-        @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            final String method = exchange.getRequestMethod();
-
-            if (method.equalsIgnoreCase("GET")) {
-                final byte[] challenge = AttestationProtocol.getChallenge();
-                pendingChallenges.put(ByteBuffer.wrap(challenge), true);
-
-                final byte[] challengeMessage =
-                        Bytes.concat(new byte[]{AttestationProtocol.PROTOCOL_VERSION},
-                                challengeIndex, challenge);
-
-                exchange.sendResponseHeaders(200, challengeMessage.length);
-                try (final OutputStream output = exchange.getResponseBody()) {
-                    output.write(challengeMessage);
-                }
-            } else if (method.equalsIgnoreCase("POST")) {
-                final String subscribeKey = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
-                final long userId;
-                final int verifyInterval;
-                if (!DEMO_SUBSCRIBE_KEY.equals(subscribeKey)) {
-                    final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
-
-                    final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
-                    try {
-                        open(conn, true);
-
-                        final SQLiteStatement select = conn.prepare("SELECT userId, verifyInterval FROM Accounts WHERE subscribeKey = ?");
-                        select.bind(1, subscribeKeyDecoded);
-                        select.step();
-                        userId = select.columnLong(0);
-                        verifyInterval = select.columnInt(1);
-                        select.dispose();
-                    } catch (final SQLiteException e) {
-                        final byte[] response = "invalid subscribe key".getBytes();
-                        exchange.sendResponseHeaders(403, response.length);
-                        try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(response);
-                        }
-                        return;
-                    } finally {
-                        conn.dispose();
-                    }
-                } else {
-                    userId = 0;
-                    verifyInterval = DEFAULT_VERIFY_INTERVAL;
-                }
-
-                final InputStream input = exchange.getRequestBody();
-
-                final ByteArrayOutputStream attestation = new ByteArrayOutputStream();
-                final byte[] buffer = new byte[4096];
-                for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
-                    attestation.write(buffer, 0, read);
-
-                    if (attestation.size() > AttestationProtocol.MAX_MESSAGE_SIZE) {
-                        final byte[] response = "Attestation too large".getBytes();
-                        exchange.sendResponseHeaders(400, response.length);
-                        try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(response);
-                        }
-                        return;
-                    }
-                }
-
-                final byte[] attestationResult = attestation.toByteArray();
-
-                try {
-                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, userId);
-                } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
-                    e.printStackTrace();
-                    final byte[] response = "Error\n".getBytes();
-                    exchange.sendResponseHeaders(400, response.length);
-                    try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(response);
-                    }
-                    return;
-                }
-
-                final byte[] response = Integer.toString(verifyInterval).getBytes();
-                exchange.sendResponseHeaders(200, response.length);
-                try (final OutputStream output = exchange.getResponseBody()) {
-                    output.write(response);
-                }
-            } else {
-                exchange.getResponseHeaders().set("Allow", "GET, POST");
-                exchange.sendResponseHeaders(405, -1);
-            }
-        }
-    }
-
     private static void createQrCode(final byte[] contents, final OutputStream output) throws IOException {
         final BitMatrix result;
         try {
@@ -731,6 +641,59 @@ public class AttestationServer {
                 return;
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+    private static class ConfigurationHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                final int verifyInterval;
+                final String requestToken;
+                try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                    final JsonObject object = reader.readObject();
+                    requestToken = object.getString("requestToken");
+                    verifyInterval = object.getInt("verifyInterval");
+                } catch (final ClassCastException | JsonException | NullPointerException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+
+                final Account account = verifySession(exchange, false, requestToken.getBytes(StandardCharsets.UTF_8));
+                if (account == null) {
+                    return;
+                }
+
+                if (verifyInterval < 3600 || verifyInterval > 604800) {
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+
+                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                try {
+                    open(conn, false);
+                    final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ? WHERE userId = ?");
+                    update.bind(1, verifyInterval);
+                    update.bind(2, account.userId);
+                    update.step();
+                    update.dispose();
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                    final byte[] response = "Failed to save data.\n".getBytes();
+                    exchange.sendResponseHeaders(500, response.length);
+                    try (final OutputStream output = exchange.getResponseBody()) {
+                        output.write(response);
+                    }
+                    return;
+                } finally {
+                    conn.dispose();
+                }
+                exchange.sendResponseHeaders(200, -1);
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
             }
         }
@@ -841,55 +804,93 @@ public class AttestationServer {
         }
     }
 
-
-    private static class ConfigurationHandler implements HttpHandler {
+    private static class VerifyHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            final String method = exchange.getRequestMethod();
+
+            if (method.equalsIgnoreCase("GET")) {
+                final byte[] challenge = AttestationProtocol.getChallenge();
+                pendingChallenges.put(ByteBuffer.wrap(challenge), true);
+
+                final byte[] challengeMessage =
+                        Bytes.concat(new byte[]{AttestationProtocol.PROTOCOL_VERSION},
+                                challengeIndex, challenge);
+
+                exchange.sendResponseHeaders(200, challengeMessage.length);
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    output.write(challengeMessage);
+                }
+            } else if (method.equalsIgnoreCase("POST")) {
+                final String subscribeKey = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
+                final long userId;
                 final int verifyInterval;
-                final String requestToken;
-                try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
-                    final JsonObject object = reader.readObject();
-                    requestToken = object.getString("requestToken");
-                    verifyInterval = object.getInt("verifyInterval");
-                } catch (final ClassCastException | JsonException | NullPointerException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
+                if (!DEMO_SUBSCRIBE_KEY.equals(subscribeKey)) {
+                    final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
+
+                    final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                    try {
+                        open(conn, true);
+
+                        final SQLiteStatement select = conn.prepare("SELECT userId, verifyInterval FROM Accounts WHERE subscribeKey = ?");
+                        select.bind(1, subscribeKeyDecoded);
+                        select.step();
+                        userId = select.columnLong(0);
+                        verifyInterval = select.columnInt(1);
+                        select.dispose();
+                    } catch (final SQLiteException e) {
+                        final byte[] response = "invalid subscribe key".getBytes();
+                        exchange.sendResponseHeaders(403, response.length);
+                        try (final OutputStream output = exchange.getResponseBody()) {
+                            output.write(response);
+                        }
+                        return;
+                    } finally {
+                        conn.dispose();
+                    }
+                } else {
+                    userId = 0;
+                    verifyInterval = DEFAULT_VERIFY_INTERVAL;
                 }
 
-                final Account account = verifySession(exchange, false, requestToken.getBytes(StandardCharsets.UTF_8));
-                if (account == null) {
-                    return;
+                final InputStream input = exchange.getRequestBody();
+
+                final ByteArrayOutputStream attestation = new ByteArrayOutputStream();
+                final byte[] buffer = new byte[4096];
+                for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
+                    attestation.write(buffer, 0, read);
+
+                    if (attestation.size() > AttestationProtocol.MAX_MESSAGE_SIZE) {
+                        final byte[] response = "Attestation too large".getBytes();
+                        exchange.sendResponseHeaders(400, response.length);
+                        try (final OutputStream output = exchange.getResponseBody()) {
+                            output.write(response);
+                        }
+                        return;
+                    }
                 }
 
-                if (verifyInterval < 3600 || verifyInterval > 604800) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
+                final byte[] attestationResult = attestation.toByteArray();
 
-                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                 try {
-                    open(conn, false);
-                    final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ? WHERE userId = ?");
-                    update.bind(1, verifyInterval);
-                    update.bind(2, account.userId);
-                    update.step();
-                    update.dispose();
-                } catch (final SQLiteException e) {
+                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, userId);
+                } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
                     e.printStackTrace();
-                    final byte[] response = "Failed to save data.\n".getBytes();
-                    exchange.sendResponseHeaders(500, response.length);
+                    final byte[] response = "Error\n".getBytes();
+                    exchange.sendResponseHeaders(400, response.length);
                     try (final OutputStream output = exchange.getResponseBody()) {
                         output.write(response);
                     }
                     return;
-                } finally {
-                    conn.dispose();
                 }
-                exchange.sendResponseHeaders(200, -1);
+
+                final byte[] response = Integer.toString(verifyInterval).getBytes();
+                exchange.sendResponseHeaders(200, response.length);
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    output.write(response);
+                }
             } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.getResponseHeaders().set("Allow", "GET, POST");
                 exchange.sendResponseHeaders(405, -1);
             }
         }
