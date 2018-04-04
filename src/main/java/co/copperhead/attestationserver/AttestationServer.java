@@ -96,7 +96,10 @@ public class AttestationServer {
         final SQLiteConnection samplesConn = new SQLiteConnection(SAMPLES_DATABASE);
         try {
             open(samplesConn, false);
-            samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (sample TEXT NOT NULL)");
+            samplesConn.exec("CREATE TABLE IF NOT EXISTS Samples (\n" +
+                    "sample TEXT NOT NULL,\n" +
+                    "time INTEGER NOT NULL\n" +
+                    ")");
         } finally {
             samplesConn.dispose();
         }
@@ -207,8 +210,9 @@ public class AttestationServer {
                 final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                 try {
                     open(conn, false);
-                    final SQLiteStatement insert = conn.prepare("INSERT INTO Samples VALUES (?)");
+                    final SQLiteStatement insert = conn.prepare("INSERT INTO Samples VALUES (?, ?)");
                     insert.bind(1, sample.toByteArray());
+                    insert.bind(2, System.currentTimeMillis());
                     insert.step();
                     insert.dispose();
                 } catch (final SQLiteException e) {
