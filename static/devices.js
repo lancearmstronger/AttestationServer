@@ -84,17 +84,7 @@ function demo() {
     formToggles.style.display = "inline";
 }
 
-function displayLogin(account) {
-    const token = localStorage.getItem("requestToken");
-    formToggles.style.display = "none";
-    createForm.style.display = "none";
-    loginForm.style.display = "none";
-    loginForm.submit.disabled = false;
-    logoutButtons.style.display = "inline";
-    loginStatus.innerHTML = `Logged in as <strong>${account.username}</strong>.`
-    configuration.style.display = "inline";
-    configuration.verify_interval.value = account.verifyInterval / 60 / 60;
-    devices.innerHTML = "";
+function reloadQrCode() {
     qr.src = "";
     qr.alt = "";
     fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
@@ -108,6 +98,20 @@ function displayLogin(account) {
     }).catch(error => {
         console.log(error);
     });
+}
+
+function displayLogin(account) {
+    const token = localStorage.getItem("requestToken");
+    formToggles.style.display = "none";
+    createForm.style.display = "none";
+    loginForm.style.display = "none";
+    loginForm.submit.disabled = false;
+    logoutButtons.style.display = "inline";
+    loginStatus.innerHTML = `Logged in as <strong>${account.username}</strong>.`
+    configuration.style.display = "inline";
+    configuration.verify_interval.value = account.verifyInterval / 60 / 60;
+    devices.innerHTML = "";
+    reloadQrCode();
     fetchDevices(false);
 }
 
@@ -355,6 +359,7 @@ configuration.onsubmit = function(event) {
             return Promise.reject();
         }
         configuration.submit.disabled = false;
+        reloadQrCode();
     }).catch(error => {
         configuration.submit.disabled = false;
         console.log(error);
