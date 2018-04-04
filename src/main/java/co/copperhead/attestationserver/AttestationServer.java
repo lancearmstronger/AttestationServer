@@ -830,7 +830,6 @@ public class AttestationServer {
                     return;
                 }
                 writeDevicesJson(exchange, account.userId);
-                return;
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
                 exchange.sendResponseHeaders(405, -1);
