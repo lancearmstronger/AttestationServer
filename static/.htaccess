@@ -4,6 +4,6 @@ Redirect 301 /devices https://attestation.copperhead.co/devices.json
 Header set Cache-Control "public, max-age=1800"
 </FilesMatch>
 
-<FilesMatch "\.(css|js|woff2)$">
+<FilesMatch "\.(css|js|png|woff2)$">
 Header set Cache-Control "public, max-age=31536000"
 </FilesMatch>

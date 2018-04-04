@@ -85,7 +85,7 @@ function demo() {
 }
 
 function reloadQrCode() {
-    qr.src = "";
+    qr.src = "/placeholder.png";
     qr.alt = "";
     fetch("/account.png", {method: "POST", body: localStorage.getItem("requestToken"), credentials: "same-origin"}).then(response => {
         if (!response.ok) {
@@ -324,7 +324,7 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
             loginStatus.innerHTML = "";
             configuration.style.display = "none";
             devices.innerHTML = "";
-            qr.src = "";
+            qr.src = "/placeholder.png";
             qr.alt = "";
             logoutButtons.style.display = "none";
             logout.disabled = false;
