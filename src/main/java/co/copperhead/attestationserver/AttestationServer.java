@@ -125,8 +125,10 @@ public class AttestationServer {
                     "requestToken BLOB NOT NULL,\n" +
                     "expiryTime INTEGER NOT NULL\n" +
                     ")");
-            attestationConn.exec("CREATE INDEX IF NOT EXISTS sessionExpiryTimeIndex " +
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS Sessions_expiryTime " +
                     "ON Sessions (expiryTime)");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS Sessions_userId " +
+                    "ON Sessions (userId)");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Devices (\n" +
                     "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
@@ -148,7 +150,8 @@ public class AttestationServer {
                     "verifiedTimeLast INTEGER NOT NULL,\n" +
                     "userId INTEGER REFERENCES Accounts (userId)\n" +
                     ")");
-            attestationConn.exec("CREATE INDEX IF NOT EXISTS deviceUserId ON Devices (userId)");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS Devices_userId_verifiedTimeFirst " +
+                    "ON Devices (userId, verifiedTimeFirst)");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
                     "fingerprint BLOB NOT NULL REFERENCES Devices (fingerprint),\n" +
@@ -157,6 +160,8 @@ public class AttestationServer {
                     "teeEnforced TEXT NOT NULL,\n" +
                     "osEnforced TEXT NOT NULL\n" +
                     ")");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS Attestations_fingerprint_time " +
+                    "ON Attestations (fingerprint, time)");
         } finally {
             attestationConn.dispose();
         }
@@ -716,7 +721,7 @@ public class AttestationServer {
         try {
             open(conn, true);
 
-            final SQLiteStatement select = conn.prepare("SELECT hex(fingerprint), " +
+            final SQLiteStatement select = conn.prepare("SELECT fingerprint, " +
                     "pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, " +
                     "hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, " +
                     "pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, " +
@@ -727,7 +732,7 @@ public class AttestationServer {
             }
             while (select.step()) {
                 final JsonObjectBuilder device = Json.createObjectBuilder();
-                device.add("fingerprint", select.columnString(0));
+                device.add("fingerprint", BaseEncoding.base16().encode(select.columnBlob(0)));
                 device.add("pinnedCertificate0", convertToPem(select.columnBlob(1)));
                 device.add("pinnedCertificate1", convertToPem(select.columnBlob(2)));
                 device.add("pinnedCertificate2", convertToPem(select.columnBlob(3)));
@@ -758,8 +763,8 @@ public class AttestationServer {
                 device.add("verifiedTimeLast", select.columnLong(16));
 
                 final SQLiteStatement history = conn.prepare("SELECT time, strong, teeEnforced, " +
-                        "osEnforced FROM Attestations WHERE hex(fingerprint) = ? ORDER BY time");
-                history.bind(1, select.columnString(0));
+                        "osEnforced FROM Attestations WHERE fingerprint = ? ORDER BY time");
+                history.bind(1, select.columnBlob(0));
 
                 final JsonArrayBuilder attestations = Json.createArrayBuilder();
                 while (history.step()) {
