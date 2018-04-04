@@ -109,7 +109,7 @@ function displayLogin(account) {
     loginStatus.innerHTML = `Logged in as <strong>${account.username}</strong>.`
     configuration.style.display = "inline";
     configuration.verify_interval.value = account.verifyInterval / 60 / 60;
-    devices.innerHTML = "";
+    devices.innerHTML = "<p>Loading device data...</p>";
     reloadQrCode();
     fetchDevices(false);
 }
