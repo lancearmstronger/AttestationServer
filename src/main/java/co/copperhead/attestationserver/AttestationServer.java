@@ -36,6 +36,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -175,8 +176,9 @@ public class AttestationServer {
         server.createContext("/logout_everywhere", new LogoutEverywhereHandler());
         server.createContext("/account", new AccountHandler());
         server.createContext("/account.png", new AccountQrHandler());
-        server.createContext("/verify", new VerifyHandler());
+        server.createContext("/configuration", new ConfigurationHandler());
         server.createContext("/devices.json", new DevicesHandler());
+        server.createContext("/verify", new VerifyHandler());
         server.setExecutor(new ThreadPoolExecutor(10, 100, 60, TimeUnit.SECONDS, new SynchronousQueue<Runnable>()));
         server.start();
     }
@@ -413,7 +415,7 @@ public class AttestationServer {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final Account account = verifySession(exchange, true);
+                final Account account = verifySession(exchange, true, null);
                 if (account == null) {
                     return;
                 }
@@ -431,7 +433,7 @@ public class AttestationServer {
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 try {
-                    final Account account = verifySession(exchange, false);
+                    final Account account = verifySession(exchange, false, null);
                     if (account == null) {
                         return;
                     }
@@ -499,7 +501,7 @@ public class AttestationServer {
                 "__Host-session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
     }
 
-    private static Account verifySession(final HttpExchange exchange, final boolean end)
+    private static Account verifySession(final HttpExchange exchange, final boolean end, byte[] requestTokenEncoded)
             throws IOException {
         final String cookie = getCookie(exchange, "__Host-session");
         if (cookie == null) {
@@ -515,14 +517,16 @@ public class AttestationServer {
         final long sessionId = Long.parseLong(session[0]);
         final byte[] cookieToken = Base64.getDecoder().decode(session[1]);
 
-        final byte[] requestTokenEncoded = new byte[session[1].length()];
-        final DataInputStream input = new DataInputStream(exchange.getRequestBody());
-        try {
-            input.readFully(requestTokenEncoded);
-        } catch (final EOFException e) {
-            clearCookie(exchange);
-            exchange.sendResponseHeaders(403, -1);
-            return null;
+        if (requestTokenEncoded == null) {
+            requestTokenEncoded = new byte[session[1].length()];
+            final DataInputStream input = new DataInputStream(exchange.getRequestBody());
+            try {
+                input.readFully(requestTokenEncoded);
+            } catch (final EOFException e) {
+                clearCookie(exchange);
+                exchange.sendResponseHeaders(403, -1);
+                return null;
+            }
         }
         final byte[] requestToken = Base64.getDecoder().decode(requestTokenEncoded);
 
@@ -571,7 +575,7 @@ public class AttestationServer {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final Account account = verifySession(exchange, false);
+                final Account account = verifySession(exchange, false, null);
                 if (account == null) {
                     return;
                 }
@@ -713,7 +717,7 @@ public class AttestationServer {
                     createQrCode(contents.getBytes(), output);
                 }
             } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final Account account = verifySession(exchange, false);
+                final Account account = verifySession(exchange, false, null);
                 if (account == null) {
                     return;
                 }
@@ -825,13 +829,67 @@ public class AttestationServer {
             if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
                 writeDevicesJson(exchange, 0);
             } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final Account account = verifySession(exchange, false);
+                final Account account = verifySession(exchange, false, null);
                 if (account == null) {
                     return;
                 }
                 writeDevicesJson(exchange, account.userId);
             } else {
                 exchange.getResponseHeaders().set("Allow", "GET, POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+
+    private static class ConfigurationHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                final int verifyInterval;
+                final String requestToken;
+                try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                    final JsonObject object = reader.readObject();
+                    requestToken = object.getString("requestToken");
+                    verifyInterval = object.getInt("verifyInterval");
+                } catch (final ClassCastException | JsonException | NullPointerException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+
+                final Account account = verifySession(exchange, false, requestToken.getBytes(StandardCharsets.UTF_8));
+                if (account == null) {
+                    return;
+                }
+
+                if (verifyInterval < 3600 || verifyInterval > 604800) {
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+
+                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                try {
+                    open(conn, false);
+                    final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ? WHERE userId = ?");
+                    update.bind(1, verifyInterval);
+                    update.bind(2, account.userId);
+                    update.step();
+                    update.dispose();
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                    final byte[] response = "Failed to save data.\n".getBytes();
+                    exchange.sendResponseHeaders(500, response.length);
+                    try (final OutputStream output = exchange.getResponseBody()) {
+                        output.write(response);
+                    }
+                    return;
+                } finally {
+                    conn.dispose();
+                }
+                exchange.sendResponseHeaders(200, -1);
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
             }
         }

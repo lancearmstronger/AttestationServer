@@ -344,5 +344,19 @@ for (const cancel of document.getElementsByClassName("cancel")) {
 
 configuration.onsubmit = function(event) {
     event.preventDefault();
-    console.log("not implemented");
+    const requestToken = localStorage.getItem("requestToken");
+    configuration.submit.disabled = true;
+    const data = JSON.stringify({
+        "requestToken": requestToken,
+        "verifyInterval": parseInt(configuration.verify_interval.value) * 60 * 60
+    });
+    fetch("/configuration", {method: "POST", body: data, credentials: "same-origin"}).then(response => {
+        if (!response.ok) {
+            return Promise.reject();
+        }
+        configuration.submit.disabled = false;
+    }).catch(error => {
+        configuration.submit.disabled = false;
+        console.log(error);
+    });
 }
