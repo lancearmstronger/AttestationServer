@@ -87,7 +87,7 @@ function demo() {
 function reloadQrCode() {
     qr.src = "";
     qr.alt = "";
-    fetch("/account.png", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
+    fetch("/account.png", {method: "POST", body: localStorage.getItem("requestToken"), credentials: "same-origin"}).then(response => {
         if (!response.ok) {
             return Promise.reject();
         }
@@ -101,7 +101,6 @@ function reloadQrCode() {
 }
 
 function displayLogin(account) {
-    const token = localStorage.getItem("requestToken");
     formToggles.style.display = "none";
     createForm.style.display = "none";
     loginForm.style.display = "none";
@@ -348,10 +347,9 @@ for (const cancel of document.getElementsByClassName("cancel")) {
 
 configuration.onsubmit = function(event) {
     event.preventDefault();
-    const requestToken = localStorage.getItem("requestToken");
     configuration.submit.disabled = true;
     const data = JSON.stringify({
-        "requestToken": requestToken,
+        "requestToken": localStorage.getItem("requestToken"),
         "verifyInterval": parseInt(configuration.verify_interval.value) * 60 * 60
     });
     fetch("/configuration", {method: "POST", body: data, credentials: "same-origin"}).then(response => {
