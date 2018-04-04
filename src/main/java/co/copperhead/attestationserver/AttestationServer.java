@@ -68,7 +68,7 @@ import static attestationserver.AttestationProtocol.fingerprintsStock;
 public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
-    private static final int VERIFY_INTERVAL = 3600;
+    private static final int DEFAULT_VERIFY_INTERVAL = 3600;
     private static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
     private static final String DEMO_SUBSCRIBE_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
@@ -110,7 +110,8 @@ public class AttestationServer {
                     "passwordHash BLOB NOT NULL,\n" +
                     "passwordSalt BLOB NOT NULL,\n" +
                     "subscribeKey BLOB NOT NULL,\n" +
-                    "creationTime INTEGER NOT NULL\n" +
+                    "creationTime INTEGER NOT NULL,\n" +
+                    "verifyInterval INTEGER NOT NULL DEFAULT 3600\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
@@ -482,11 +483,14 @@ public class AttestationServer {
         final long userId;
         final byte[] username;
         final byte[] subscribeKey;
+        final int verifyInterval;
 
-        Account(final long userId, final byte[] username, final byte[] subscribeKey) {
+        Account(final long userId, final byte[] username, final byte[] subscribeKey,
+                final int verifyInterval) {
             this.userId = userId;
             this.username = username;
             this.subscribeKey = subscribeKey;
+            this.verifyInterval = verifyInterval;
         }
     }
 
@@ -527,7 +531,8 @@ public class AttestationServer {
             open(conn, !end);
 
             final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, " +
-                    "expiryTime, username, subscribeKey, Accounts.userId FROM Sessions " +
+                    "expiryTime, username, subscribeKey, Accounts.userId, verifyInterval " +
+                    "FROM Sessions " +
                     "INNER JOIN Accounts on Accounts.userId = Sessions.userId " +
                     "WHERE sessionId = ?");
             select.bind(1, sessionId);
@@ -552,7 +557,8 @@ public class AttestationServer {
                 delete.dispose();
             }
 
-            return new Account(select.columnLong(5), select.columnBlob(3), select.columnBlob(4));
+            return new Account(select.columnLong(5), select.columnBlob(3), select.columnBlob(4),
+                    select.columnInt(6));
         } catch (final SQLiteException e) {
             exchange.sendResponseHeaders(500, -1);
             return null;
@@ -601,6 +607,7 @@ public class AttestationServer {
             } else if (method.equalsIgnoreCase("POST")) {
                 final String subscribeKey = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
                 final long userId;
+                final int verifyInterval;
                 if (!DEMO_SUBSCRIBE_KEY.equals(subscribeKey)) {
                     final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
 
@@ -608,10 +615,11 @@ public class AttestationServer {
                     try {
                         open(conn, true);
 
-                        final SQLiteStatement select = conn.prepare("SELECT userId FROM Accounts WHERE subscribeKey = ?");
+                        final SQLiteStatement select = conn.prepare("SELECT userId, verifyInterval FROM Accounts WHERE subscribeKey = ?");
                         select.bind(1, subscribeKeyDecoded);
                         select.step();
                         userId = select.columnLong(0);
+                        verifyInterval = select.columnInt(1);
                         select.dispose();
                     } catch (final SQLiteException e) {
                         final byte[] response = "invalid subscribe key".getBytes();
@@ -625,6 +633,7 @@ public class AttestationServer {
                     }
                 } else {
                     userId = 0;
+                    verifyInterval = DEFAULT_VERIFY_INTERVAL;
                 }
 
                 final InputStream input = exchange.getRequestBody();
@@ -658,7 +667,7 @@ public class AttestationServer {
                     return;
                 }
 
-                final byte[] response = Integer.toString(VERIFY_INTERVAL).getBytes();
+                final byte[] response = Integer.toString(verifyInterval).getBytes();
                 exchange.sendResponseHeaders(200, response.length);
                 try (final OutputStream output = exchange.getResponseBody()) {
                     output.write(response);
@@ -696,7 +705,7 @@ public class AttestationServer {
                 exchange.getResponseHeaders().set("Cache-Control", "public, max-age=1800");
                 exchange.sendResponseHeaders(200, 0);
                 try (final OutputStream output = exchange.getResponseBody()) {
-                    final String contents = "attestation.copperhead.co " + DEMO_SUBSCRIBE_KEY + " " + VERIFY_INTERVAL;
+                    final String contents = "attestation.copperhead.co " + DEMO_SUBSCRIBE_KEY + " " + DEFAULT_VERIFY_INTERVAL;
                     createQrCode(contents.getBytes(), output);
                 }
             } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
@@ -708,7 +717,7 @@ public class AttestationServer {
                 try (final OutputStream output = exchange.getResponseBody()) {
                     final String contents = "attestation.copperhead.co " +
                         BaseEncoding.base16().encode(account.subscribeKey) + " " +
-                        VERIFY_INTERVAL;
+                        account.verifyInterval;
                     createQrCode(contents.getBytes(), output);
                 }
                 return;
