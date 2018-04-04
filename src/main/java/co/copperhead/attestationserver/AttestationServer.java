@@ -100,6 +100,7 @@ public class AttestationServer {
                     "sample TEXT NOT NULL,\n" +
                     "time INTEGER NOT NULL\n" +
                     ")");
+            samplesConn.exec("VACUUM");
         } finally {
             samplesConn.dispose();
         }
@@ -162,6 +163,7 @@ public class AttestationServer {
                     ")");
             attestationConn.exec("CREATE INDEX IF NOT EXISTS Attestations_fingerprint_time " +
                     "ON Attestations (fingerprint, time)");
+            attestationConn.exec("VACUUM");
         } finally {
             attestationConn.dispose();
         }
