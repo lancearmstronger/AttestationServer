@@ -893,7 +893,7 @@ public class AttestationServer {
                 try (final JsonReader reader = Json.createReader(token)) {
                     final JsonObject object = reader.readObject();
                     userId = object.getJsonNumber("userId").longValue();
-                    subscribeKey = object.getString("subscribeKey");
+                    subscribeKey = object.getString("subscribeKey", null);
                 } catch (final ClassCastException | JsonException | NullPointerException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(400, -1);
@@ -922,8 +922,11 @@ public class AttestationServer {
                         conn.dispose();
                     }
 
-                    if (!MessageDigest.isEqual(subscribeKeyDecoded, currentSubscribeKey)) {
+                    if (subscribeKey == null) {
                         userId = -1;
+                    } else if (!MessageDigest.isEqual(subscribeKeyDecoded, currentSubscribeKey)) {
+                        exchange.sendResponseHeaders(400, -1);
+                        return;
                     }
                 } else {
                     if (!MessageDigest.isEqual(subscribeKey.getBytes(), DEMO_SUBSCRIBE_KEY.getBytes())) {
