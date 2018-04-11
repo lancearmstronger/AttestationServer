@@ -864,6 +864,7 @@ public class AttestationServer {
                     return;
                 }
 
+                final byte[] currentSubscribeKey;
                 final int verifyInterval;
                 if (userId != 0) {
                     final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
@@ -875,9 +876,7 @@ public class AttestationServer {
                         final SQLiteStatement select = conn.prepare("SELECT subscribeKey, verifyInterval FROM Accounts WHERE userId = ?");
                         select.bind(1, userId);
                         select.step();
-                        if (!MessageDigest.isEqual(subscribeKeyDecoded, select.columnBlob(0))) {
-                            userId = -1;
-                        }
+                        currentSubscribeKey = select.columnBlob(0);
                         verifyInterval = select.columnInt(1);
                         select.dispose();
                     } catch (final SQLiteException e) {
@@ -886,10 +885,15 @@ public class AttestationServer {
                     } finally {
                         conn.dispose();
                     }
+
+                    if (!MessageDigest.isEqual(subscribeKeyDecoded, currentSubscribeKey)) {
+                        userId = -1;
+                    }
                 } else {
                     if (!MessageDigest.isEqual(subscribeKey.getBytes(), DEMO_SUBSCRIBE_KEY.getBytes())) {
                         userId = -1;
                     }
+                    currentSubscribeKey = BaseEncoding.base16().decode(DEMO_SUBSCRIBE_KEY);
                     verifyInterval = DEFAULT_VERIFY_INTERVAL;
                 }
 
@@ -924,10 +928,14 @@ public class AttestationServer {
                     return;
                 }
 
-                final byte[] response = Integer.toString(verifyInterval).getBytes();
-                exchange.sendResponseHeaders(200, response.length);
-                try (final OutputStream output = exchange.getResponseBody()) {
-                    output.write(response);
+                final JsonObjectBuilder result = Json.createObjectBuilder();
+                result.add("subscribeKey", BaseEncoding.base16().encode(currentSubscribeKey));
+                result.add("verifyInterval", verifyInterval);
+
+                exchange.sendResponseHeaders(200, 0);
+                try (final OutputStream output = exchange.getResponseBody();
+                        final JsonWriter writer = Json.createWriter(output)) {
+                    writer.write(result.build());
                 }
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");
