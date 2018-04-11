@@ -73,7 +73,7 @@ public class AttestationServer {
     private static final int DEFAULT_VERIFY_INTERVAL = 3600;
     private static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
-    private static final String DEMO_SUBSCRIBE_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
+    private static final byte[] DEMO_SUBSCRIBE_KEY = new byte[32];
     private static final long SESSION_LENGTH = 1000 * 60 * 60 * 48;
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
@@ -672,7 +672,8 @@ public class AttestationServer {
                 exchange.getResponseHeaders().set("Cache-Control", "public, max-age=1800");
                 exchange.sendResponseHeaders(200, 0);
                 try (final OutputStream output = exchange.getResponseBody()) {
-                    final String contents = "attestation.copperhead.co 0 " + DEMO_SUBSCRIBE_KEY +
+                    final String contents = "attestation.copperhead.co 0 " +
+                            BaseEncoding.base16().encode(DEMO_SUBSCRIBE_KEY) +
                             " " + DEFAULT_VERIFY_INTERVAL;
                     createQrCode(contents.getBytes(), output);
                 }
@@ -902,9 +903,8 @@ public class AttestationServer {
 
                 final byte[] currentSubscribeKey;
                 final int verifyInterval;
+                final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
                 if (userId != 0) {
-                    final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
-
                     final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                     try {
                         open(conn, true);
@@ -921,19 +921,16 @@ public class AttestationServer {
                     } finally {
                         conn.dispose();
                     }
-
-                    if (subscribeKey == null) {
-                        userId = -1;
-                    } else if (!MessageDigest.isEqual(subscribeKeyDecoded, currentSubscribeKey)) {
-                        exchange.sendResponseHeaders(400, -1);
-                        return;
-                    }
                 } else {
-                    if (!MessageDigest.isEqual(subscribeKey.getBytes(), DEMO_SUBSCRIBE_KEY.getBytes())) {
-                        userId = -1;
-                    }
-                    currentSubscribeKey = BaseEncoding.base16().decode(DEMO_SUBSCRIBE_KEY);
+                    currentSubscribeKey = DEMO_SUBSCRIBE_KEY;
                     verifyInterval = DEFAULT_VERIFY_INTERVAL;
+                }
+
+                if (subscribeKey == null) {
+                    userId = -1;
+                } else if (!MessageDigest.isEqual(subscribeKeyDecoded, currentSubscribeKey)) {
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
                 }
 
                 final InputStream input = exchange.getRequestBody();
