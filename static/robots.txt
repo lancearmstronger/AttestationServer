@@ -1,4 +1,2 @@
 User-agent: *
-Disallow: /verify
-
 Sitemap: https://attestation.copperhead.co/sitemap.xml

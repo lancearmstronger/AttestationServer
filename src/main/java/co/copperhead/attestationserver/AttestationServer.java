@@ -189,6 +189,7 @@ public class AttestationServer {
         server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/configuration", new ConfigurationHandler());
         server.createContext("/devices.json", new DevicesHandler());
+        server.createContext("/challenge", new ChallengeHandler());
         server.createContext("/verify", new VerifyHandler());
         server.setExecutor(new ThreadPoolExecutor(10, 100, 60, TimeUnit.SECONDS, new SynchronousQueue<Runnable>()));
         server.start();
@@ -817,12 +818,10 @@ public class AttestationServer {
         }
     }
 
-    private static class VerifyHandler implements HttpHandler {
+    private static class ChallengeHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
-            final String method = exchange.getRequestMethod();
-
-            if (method.equalsIgnoreCase("GET")) {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 final byte[] challenge = AttestationProtocol.getChallenge();
                 pendingChallenges.put(ByteBuffer.wrap(challenge), true);
 
@@ -834,7 +833,17 @@ public class AttestationServer {
                 try (final OutputStream output = exchange.getResponseBody()) {
                     output.write(challengeMessage);
                 }
-            } else if (method.equalsIgnoreCase("POST")) {
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+    private static class VerifyHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 final List<String> authorization = exchange.getRequestHeaders().get("Authorization");
                 if (authorization == null) {
                     exchange.sendResponseHeaders(400, -1);
@@ -920,7 +929,7 @@ public class AttestationServer {
                     output.write(response);
                 }
             } else {
-                exchange.getResponseHeaders().set("Allow", "GET, POST");
+                exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
             }
         }
