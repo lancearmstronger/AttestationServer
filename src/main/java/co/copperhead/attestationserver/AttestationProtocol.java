@@ -500,6 +500,9 @@ class AttestationProtocol {
         final String fingerprintHex = BaseEncoding.base16().encode(fingerprint);
         final byte[] currentFingerprint = getFingerprint(attestationCertificates[0]);
         final boolean hasPersistentKey = !Arrays.equals(currentFingerprint, fingerprint);
+        if (userId == -1 && !hasPersistentKey) {
+            throw new GeneralSecurityException("must be authenticated with subscribeKey for initial verification");
+        }
 
         final SQLiteConnection conn = new SQLiteConnection(ATTESTATION_DATABASE);
         try {
@@ -586,7 +589,7 @@ class AttestationProtocol {
                 update.bind(12, fingerprint);
                 update.step();
                 update.dispose();
-             } else {
+            } else {
                 verifySignature(attestationCertificates[0].getPublicKey(), signedMessage, signature);
 
                 final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");

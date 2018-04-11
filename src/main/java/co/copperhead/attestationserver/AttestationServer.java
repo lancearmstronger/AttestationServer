@@ -842,7 +842,7 @@ public class AttestationServer {
                 }
                 final StringReader token = new StringReader(authorization.get(0).split(" ", 2)[1]);
 
-                final long userId;
+                long userId;
                 final String subscribeKey;
                 try (final JsonReader reader = Json.createReader(token)) {
                     final JsonObject object = reader.readObject();
@@ -866,8 +866,7 @@ public class AttestationServer {
                         select.bind(1, userId);
                         select.step();
                         if (!MessageDigest.isEqual(subscribeKeyDecoded, select.columnBlob(0))) {
-                            exchange.sendResponseHeaders(403, -1);
-                            return;
+                            userId = -1;
                         }
                         verifyInterval = select.columnInt(1);
                         select.dispose();
@@ -879,8 +878,7 @@ public class AttestationServer {
                     }
                 } else {
                     if (!MessageDigest.isEqual(subscribeKey.getBytes(), DEMO_SUBSCRIBE_KEY.getBytes())) {
-                        exchange.sendResponseHeaders(403, -1);
-                        return;
+                        userId = -1;
                     }
                     verifyInterval = DEFAULT_VERIFY_INTERVAL;
                 }
