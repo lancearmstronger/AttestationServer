@@ -514,7 +514,10 @@ class AttestationProtocol {
             int pinnedOsPatchLevel = Integer.MAX_VALUE;
             int pinnedAppVersion = Integer.MAX_VALUE;
             if (hasPersistentKey) {
-                final SQLiteStatement st = conn.prepare("SELECT pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, pinnedVerifiedBootKey, pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion FROM Devices WHERE fingerprint = ?");
+                final SQLiteStatement st = conn.prepare("SELECT pinnedCertificate0, " +
+                        "pinnedCertificate1, pinnedCertificate2, pinnedVerifiedBootKey, " +
+                        "pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion " +
+                        "FROM Devices WHERE fingerprint = ?");
                 st.bind(1, fingerprint);
                 if (st.step()) {
                     pinnedCertificates[0] = st.columnBlob(0);
@@ -574,7 +577,11 @@ class AttestationProtocol {
 
                 appendVerifiedInformation(teeEnforced, verified);
 
-                final SQLiteStatement update = conn.prepare("UPDATE Devices SET pinnedOsVersion = ?, pinnedOsPatchLevel = ?, pinnedAppVersion = ?, userProfileSecure = ?, enrolledFingerprints = ?, accessibility = ?, deviceAdmin = ?, adbEnabled = ?, addUsersWhenLocked = ?, denyNewUsb = ?, verifiedTimeLast = ? WHERE fingerprint = ?");
+                final SQLiteStatement update = conn.prepare("UPDATE Devices SET " +
+                        "pinnedOsVersion = ?, pinnedOsPatchLevel = ?, pinnedAppVersion = ?, " +
+                        "userProfileSecure = ?, enrolledFingerprints = ?, accessibility = ?, " +
+                        "deviceAdmin = ?, adbEnabled = ?, addUsersWhenLocked = ?, " +
+                        "denyNewUsb = ?, verifiedTimeLast = ? WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
                 update.bind(2, verified.osPatchLevel);
                 update.bind(3, verified.appVersion);
