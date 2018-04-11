@@ -634,7 +634,7 @@ public class AttestationServer {
                 exchange.getResponseHeaders().set("Cache-Control", "public, max-age=1800");
                 exchange.sendResponseHeaders(200, 0);
                 try (final OutputStream output = exchange.getResponseBody()) {
-                    final String contents = "attestation.copperhead.co " + DEMO_SUBSCRIBE_KEY + " " + DEFAULT_VERIFY_INTERVAL;
+                    final String contents = "attestation.copperhead.co 0 " + DEMO_SUBSCRIBE_KEY + " " + DEFAULT_VERIFY_INTERVAL;
                     createQrCode(contents.getBytes(), output);
                 }
             } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
@@ -645,6 +645,7 @@ public class AttestationServer {
                 exchange.sendResponseHeaders(200, 0);
                 try (final OutputStream output = exchange.getResponseBody()) {
                     final String contents = "attestation.copperhead.co " +
+                        account.userId + " " +
                         BaseEncoding.base16().encode(account.subscribeKey) + " " +
                         account.verifyInterval;
                     createQrCode(contents.getBytes(), output);
