@@ -16,7 +16,8 @@ than assuming base64 encoding. Additional fields may be added in the future.
 Returns a standard challenge message in the same format as the Auditor app QR code. The challenge
 can only be used once and expires in 1 minute.
 
-The server challenge index *may* rotate.
+The server challenge index *may* rotate. Ample time will be provided for subscribeKey rotation to
+be propagated before the challenge index is rotated.
 
 ### /verify
 
