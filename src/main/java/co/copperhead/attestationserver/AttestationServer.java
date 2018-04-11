@@ -30,6 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -834,34 +835,53 @@ public class AttestationServer {
                     output.write(challengeMessage);
                 }
             } else if (method.equalsIgnoreCase("POST")) {
-                final String subscribeKey = Paths.get(exchange.getRequestURI().getPath()).getFileName().toString();
+                final List<String> authorization = exchange.getRequestHeaders().get("Authorization");
+                if (authorization == null) {
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+                final StringReader token = new StringReader(authorization.get(0).split(" ", 2)[1]);
+
                 final long userId;
+                final String subscribeKey;
+                try (final JsonReader reader = Json.createReader(token)) {
+                    final JsonObject object = reader.readObject();
+                    userId = object.getJsonNumber("userId").longValue();
+                    subscribeKey = object.getString("subscribeKey");
+                } catch (final ClassCastException | JsonException | NullPointerException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+
                 final int verifyInterval;
-                if (!DEMO_SUBSCRIBE_KEY.equals(subscribeKey)) {
+                if (userId != 0) {
                     final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
 
                     final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                     try {
                         open(conn, true);
 
-                        final SQLiteStatement select = conn.prepare("SELECT userId, verifyInterval FROM Accounts WHERE subscribeKey = ?");
-                        select.bind(1, subscribeKeyDecoded);
+                        final SQLiteStatement select = conn.prepare("SELECT subscribeKey, verifyInterval FROM Accounts WHERE userId = ?");
+                        select.bind(1, userId);
                         select.step();
-                        userId = select.columnLong(0);
+                        if (!MessageDigest.isEqual(subscribeKeyDecoded, select.columnBlob(0))) {
+                            exchange.sendResponseHeaders(403, -1);
+                            return;
+                        }
                         verifyInterval = select.columnInt(1);
                         select.dispose();
                     } catch (final SQLiteException e) {
-                        final byte[] response = "invalid subscribe key".getBytes();
-                        exchange.sendResponseHeaders(403, response.length);
-                        try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(response);
-                        }
+                        exchange.sendResponseHeaders(403, -1);
                         return;
                     } finally {
                         conn.dispose();
                     }
                 } else {
-                    userId = 0;
+                    if (!MessageDigest.isEqual(subscribeKey.getBytes(), DEMO_SUBSCRIBE_KEY.getBytes())) {
+                        exchange.sendResponseHeaders(403, -1);
+                        return;
+                    }
                     verifyInterval = DEFAULT_VERIFY_INTERVAL;
                 }
 
