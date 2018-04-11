@@ -2,7 +2,9 @@
 
 ### QR code
 
-The scanned QR code contains `<domain> <userId> <subscribeKey> <verifyInterval>`.
+The scanned QR code contains space-separated values in plain-text: `<domain> <userId>
+<subscribeKey> <verifyInterval>`. The `subscribeKey` should be treated as an opaque string rather
+than assuming base64 encoding. Additional fields may be added in the future.
 
 ### /challenge
 

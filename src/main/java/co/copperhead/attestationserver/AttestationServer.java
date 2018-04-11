@@ -673,7 +673,7 @@ public class AttestationServer {
                 exchange.sendResponseHeaders(200, 0);
                 try (final OutputStream output = exchange.getResponseBody()) {
                     final String contents = "attestation.copperhead.co 0 " +
-                            BaseEncoding.base16().encode(DEMO_SUBSCRIBE_KEY) +
+                            BaseEncoding.base64().encode(DEMO_SUBSCRIBE_KEY) +
                             " " + DEFAULT_VERIFY_INTERVAL;
                     createQrCode(contents.getBytes(), output);
                 }
@@ -686,7 +686,7 @@ public class AttestationServer {
                 try (final OutputStream output = exchange.getResponseBody()) {
                     final String contents = "attestation.copperhead.co " +
                         account.userId + " " +
-                        BaseEncoding.base16().encode(account.subscribeKey) + " " +
+                        BaseEncoding.base64().encode(account.subscribeKey) + " " +
                         account.verifyInterval;
                     createQrCode(contents.getBytes(), output);
                 }
@@ -903,7 +903,6 @@ public class AttestationServer {
 
                 final byte[] currentSubscribeKey;
                 final int verifyInterval;
-                final byte[] subscribeKeyDecoded = BaseEncoding.base16().decode(subscribeKey);
                 if (userId != 0) {
                     final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                     try {
@@ -928,7 +927,8 @@ public class AttestationServer {
 
                 if (subscribeKey == null) {
                     userId = -1;
-                } else if (!MessageDigest.isEqual(subscribeKeyDecoded, currentSubscribeKey)) {
+                } else if (!MessageDigest.isEqual(BaseEncoding.base64().decode(subscribeKey),
+                        currentSubscribeKey)) {
                     exchange.sendResponseHeaders(400, -1);
                     return;
                 }
@@ -965,7 +965,7 @@ public class AttestationServer {
                 }
 
                 final JsonObjectBuilder result = Json.createObjectBuilder();
-                result.add("subscribeKey", BaseEncoding.base16().encode(currentSubscribeKey));
+                result.add("subscribeKey", BaseEncoding.base64().encode(currentSubscribeKey));
                 result.add("verifyInterval", verifyInterval);
 
                 exchange.sendResponseHeaders(200, 0);
