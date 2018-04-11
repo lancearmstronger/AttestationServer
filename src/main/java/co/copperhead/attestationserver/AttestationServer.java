@@ -887,19 +887,13 @@ public class AttestationServer {
                     exchange.sendResponseHeaders(400, -1);
                     return;
                 }
-                final StringReader token = new StringReader(authorization.get(0).split(" ", 2)[1]);
-
-                long userId;
-                final String subscribeKey;
-                try (final JsonReader reader = Json.createReader(token)) {
-                    final JsonObject object = reader.readObject();
-                    userId = object.getJsonNumber("userId").longValue();
-                    subscribeKey = object.getString("subscribeKey", null);
-                } catch (final ClassCastException | JsonException | NullPointerException e) {
-                    e.printStackTrace();
+                final String[] tokens = authorization.get(0).split(" ");
+                if (!tokens[0].equals("Auditor") || tokens.length < 2 || tokens.length > 3) {
                     exchange.sendResponseHeaders(400, -1);
                     return;
                 }
+                long userId = Long.parseLong(tokens[1]);
+                final String subscribeKey = tokens.length == 3 ? tokens[2] : null;
 
                 final byte[] currentSubscribeKey;
                 final int verifyInterval;

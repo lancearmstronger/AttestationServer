@@ -23,9 +23,9 @@ The server challenge index *may* rotate.
 * Request method: POST
 * Request headers:
 
-The `Authorization` header needs to be set to `Auditor <token>` where `<token>` is a JSON object
-with the `userId`. For an unpaired attestation, it also needs to have the `subscribeKey`. The
-`subscribeKey` should not be sent for a paired attestation to allow for key rotation.
+The `Authorization` header needs to be set to `Auditor <userId> <subscribeKey>` for an unpaired
+attestation. That will also work for a paired attestation if the subscribeKey matches, but it
+should be set to `Auditor <userId>` to allow for subscribeKey rotation.
 
 * Request body:
 
