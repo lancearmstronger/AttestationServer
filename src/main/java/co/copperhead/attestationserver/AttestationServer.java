@@ -185,6 +185,7 @@ public class AttestationServer {
         server.createContext("/login", new LoginHandler());
         server.createContext("/logout", new LogoutHandler());
         server.createContext("/logout_everywhere", new LogoutEverywhereHandler());
+        server.createContext("/rotate", new RotateHandler());
         server.createContext("/account", new AccountHandler());
         server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/configuration", new ConfigurationHandler());
@@ -469,6 +470,41 @@ public class AttestationServer {
                     return;
                 }
                 clearCookie(exchange);
+                exchange.sendResponseHeaders(200, -1);
+            } else {
+                exchange.getResponseHeaders().set("Allow", "POST");
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+    private static class RotateHandler implements HttpHandler {
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                final Account account = verifySession(exchange, false, null);
+                if (account == null) {
+                    return;
+                }
+                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                try {
+                    open(conn, false);
+
+                    final SecureRandom random = new SecureRandom();
+                    final byte[] subscribeKey = new byte[32];
+                    random.nextBytes(subscribeKey);
+
+                    final SQLiteStatement select = conn.prepare("UPDATE Accounts SET subscribeKey = ? where userId = ?");
+                    select.bind(1, subscribeKey);
+                    select.bind(2, account.userId);
+                    select.step();
+                    select.dispose();
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                } finally {
+                    conn.dispose();
+                }
                 exchange.sendResponseHeaders(200, -1);
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");

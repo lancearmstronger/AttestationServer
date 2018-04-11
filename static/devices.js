@@ -50,6 +50,7 @@ const logoutButtons = document.getElementById("logout_buttons");
 const configuration = document.getElementById("configuration");
 const devices = document.getElementById("devices");
 const qr = document.getElementById("qr");
+const rotate = document.getElementById("rotate");
 devices.style.display = "block";
 
 const deviceAdminStrings = {
@@ -95,6 +96,7 @@ function reloadQrCode() {
     }).then(imageBlob => {
         qr.src = URL.createObjectURL(imageBlob);
         qr.alt = "account QR code";
+        rotate.style.display = "block";
     }).catch(error => {
         console.log(error);
     });
@@ -326,6 +328,7 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
             devices.innerHTML = "";
             qr.src = "/placeholder.png";
             qr.alt = "";
+            rotate.style.display = "none";
             logoutButtons.style.display = "none";
             logout.disabled = false;
             logoutEverywhere.disabled = false;
@@ -343,6 +346,22 @@ for (const cancel of document.getElementsByClassName("cancel")) {
         this.parentElement.style.display = "none";
         formToggles.style.display = "inline";
     }
+}
+
+rotate.onclick = function(event) {
+    event.preventDefault();
+    rotate.disabled = true;
+    const requestToken = localStorage.getItem("requestToken");
+    fetch("/rotate", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
+        if (!response.ok) {
+            return Promise.reject();
+        }
+        rotate.disabled = false;
+        reloadQrCode();
+    }).catch(error => {
+        rotate.disabled = false;
+        console.log(error);
+    });
 }
 
 configuration.onsubmit = function(event) {
