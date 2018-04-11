@@ -958,14 +958,11 @@ public class AttestationServer {
                     return;
                 }
 
-                final JsonObjectBuilder result = Json.createObjectBuilder();
-                result.add("subscribeKey", BaseEncoding.base64().encode(currentSubscribeKey));
-                result.add("verifyInterval", verifyInterval);
-
-                exchange.sendResponseHeaders(200, 0);
-                try (final OutputStream output = exchange.getResponseBody();
-                        final JsonWriter writer = Json.createWriter(output)) {
-                    writer.write(result.build());
+                final byte[] result = (BaseEncoding.base64().encode(currentSubscribeKey) + " " +
+                        verifyInterval).getBytes();
+                exchange.sendResponseHeaders(200, result.length);
+                try (final OutputStream output = exchange.getResponseBody()) {
+                    output.write(result);
                 }
             } else {
                 exchange.getResponseHeaders().set("Allow", "POST");

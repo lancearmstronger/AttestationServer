@@ -33,7 +33,5 @@ Standard attestation message in the same format as the Auditor app QR code.
 
 * Response body:
 
-Returns a JSON object with `subscribeKey` and `verifyInterval` fields. The `subscribeKey` should
-be saved and used in the future if a new pairing is required due to a challenge index rotation.
-The `verifyInterval` field is an integer with the time (in seconds) until the next attestation
-should be submitted.
+Returns space-separated values in plain text: `<subscribeKey> <verifyInterval>`. Additional fields
+may be added in the future.
