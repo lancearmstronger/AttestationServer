@@ -892,7 +892,7 @@ public class AttestationServer {
                     exchange.sendResponseHeaders(400, -1);
                     return;
                 }
-                long userId = Long.parseLong(tokens[1]);
+                final long userId = Long.parseLong(tokens[1]);
                 final String subscribeKey = tokens.length == 3 ? tokens[2] : null;
 
                 final byte[] currentSubscribeKey;
@@ -919,9 +919,7 @@ public class AttestationServer {
                     verifyInterval = DEFAULT_VERIFY_INTERVAL;
                 }
 
-                if (subscribeKey == null) {
-                    userId = -1;
-                } else if (!MessageDigest.isEqual(BaseEncoding.base64().decode(subscribeKey),
+                if (subscribeKey != null && !MessageDigest.isEqual(BaseEncoding.base64().decode(subscribeKey),
                         currentSubscribeKey)) {
                     exchange.sendResponseHeaders(400, -1);
                     return;
@@ -947,7 +945,7 @@ public class AttestationServer {
                 final byte[] attestationResult = attestation.toByteArray();
 
                 try {
-                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, userId);
+                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, userId, subscribeKey == null);
                 } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
                     e.printStackTrace();
                     final byte[] response = "Error\n".getBytes();

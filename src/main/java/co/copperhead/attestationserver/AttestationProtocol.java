@@ -490,7 +490,8 @@ class AttestationProtocol {
     }
 
     private static void verify(final byte[] fingerprint,
-            final Cache<ByteBuffer, Boolean> pendingChallenges, final long userId, final ByteBuffer signedMessage, final byte[] signature,
+            final Cache<ByteBuffer, Boolean> pendingChallenges, final long userId,
+            final boolean paired, final ByteBuffer signedMessage, final byte[] signature,
             final Certificate[] attestationCertificates, final boolean userProfileSecure,
             final boolean accessibility, final boolean deviceAdmin,
             final boolean deviceAdminNonSystem, final boolean adbEnabled,
@@ -500,7 +501,7 @@ class AttestationProtocol {
         final String fingerprintHex = BaseEncoding.base16().encode(fingerprint);
         final byte[] currentFingerprint = getFingerprint(attestationCertificates[0]);
         final boolean hasPersistentKey = !Arrays.equals(currentFingerprint, fingerprint);
-        if (userId == -1 && !hasPersistentKey) {
+        if (paired && !hasPersistentKey) {
             throw new GeneralSecurityException("must be authenticated with subscribeKey for initial verification");
         }
 
@@ -516,7 +517,7 @@ class AttestationProtocol {
             if (hasPersistentKey) {
                 final SQLiteStatement st = conn.prepare("SELECT pinnedCertificate0, " +
                         "pinnedCertificate1, pinnedCertificate2, pinnedVerifiedBootKey, " +
-                        "pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion " +
+                        "pinnedOsVersion, pinnedOsPatchLevel, pinnedAppVersion, userId " +
                         "FROM Devices WHERE fingerprint = ?");
                 st.bind(1, fingerprint);
                 if (st.step()) {
@@ -527,6 +528,9 @@ class AttestationProtocol {
                     pinnedOsVersion = st.columnInt(4);
                     pinnedOsPatchLevel = st.columnInt(5);
                     pinnedAppVersion = st.columnInt(6);
+                    if (userId != st.columnLong(7)) {
+                        throw new GeneralSecurityException("wrong userId");
+                    }
                     st.dispose();
                 } else {
                     st.dispose();
@@ -672,7 +676,8 @@ class AttestationProtocol {
     }
 
     static void verifySerialized(final byte[] attestationResult,
-            final Cache<ByteBuffer, Boolean> pendingChallenges, final long userId) throws DataFormatException, GeneralSecurityException, IOException {
+            final Cache<ByteBuffer, Boolean> pendingChallenges, final long userId, final boolean paired)
+            throws DataFormatException, GeneralSecurityException, IOException {
         final ByteBuffer deserializer = ByteBuffer.wrap(attestationResult);
         final byte version = deserializer.get();
         if (version > PROTOCOL_VERSION) {
@@ -736,7 +741,7 @@ class AttestationProtocol {
         deserializer.rewind();
         deserializer.limit(deserializer.capacity() - signature.length);
 
-        verify(fingerprint, pendingChallenges, userId, deserializer.asReadOnlyBuffer(), signature,
+        verify(fingerprint, pendingChallenges, userId, paired, deserializer.asReadOnlyBuffer(), signature,
                 certificates, userProfileSecure, accessibility, deviceAdmin, deviceAdminNonSystem,
                 adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb);
     }
