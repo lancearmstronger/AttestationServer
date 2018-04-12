@@ -80,7 +80,6 @@ public class AttestationServer {
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .maximumSize(100000)
             .build();
-    private static byte[] challengeIndex;
 
     static void open(final SQLiteConnection conn, final boolean readOnly) throws SQLiteException {
         if (readOnly) {
@@ -167,16 +166,6 @@ public class AttestationServer {
             attestationConn.exec("VACUUM");
         } finally {
             attestationConn.dispose();
-        }
-
-        try {
-            challengeIndex = Files.readAllBytes(CHALLENGE_INDEX_PATH);
-            if (challengeIndex.length != AttestationProtocol.CHALLENGE_LENGTH) {
-                throw new RuntimeException("challenge index is not " + AttestationProtocol.CHALLENGE_LENGTH + " bytes");
-            }
-        } catch (final IOException e) {
-            challengeIndex = AttestationProtocol.getChallenge();
-            Files.write(CHALLENGE_INDEX_PATH, challengeIndex);
         }
 
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
@@ -865,7 +854,7 @@ public class AttestationServer {
 
                 final byte[] challengeMessage =
                         Bytes.concat(new byte[]{AttestationProtocol.PROTOCOL_VERSION},
-                                challengeIndex, challenge);
+                                new byte[AttestationProtocol.CHALLENGE_LENGTH], challenge);
 
                 exchange.sendResponseHeaders(200, challengeMessage.length);
                 try (final OutputStream output = exchange.getResponseBody()) {
