@@ -1,5 +1,9 @@
 Redirect 301 /devices https://attestation.copperhead.co/devices.json
 
+Header always set Content-Security-Policy "default-src 'self'; img-src 'self' blob:; \
+form-action 'self'; object-src 'none'; block-all-mixed-content; \
+report-uri https://copperhead.report-uri.io/r/default/csp/enforce"
+
 <FilesMatch "\.(html|ico|txt|xml)$">
 Header set Cache-Control "public, max-age=1800"
 </FilesMatch>
