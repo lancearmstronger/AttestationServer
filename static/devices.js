@@ -228,7 +228,7 @@ if (token === null) {
     showDemo();
 } else {
     fetch("/account", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
-        if (response.status == 403) {
+        if (response.status === 403) {
             localStorage.removeItem("requestToken");
         }
         if (!response.ok) {
@@ -243,12 +243,12 @@ if (token === null) {
     });
 }
 
-create.onclick = function() {
+create.onclick = () => {
     formToggles.style.display = "none";
     createForm.style.display = "block";
 }
 
-createPasswordConfirm.oninput = function() {
+createPasswordConfirm.oninput = () => {
     if (createPassword.value === createPasswordConfirm.value) {
         createPasswordConfirm.setCustomValidity("");
     }
@@ -266,10 +266,10 @@ function doLogin(username, password) {
     const loginJson = JSON.stringify({username: username, password: password});
     fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
-            if (response.status == 400) {
+            if (response.status === 400) {
                 loginUsername.setCustomValidity("Username does not exist");
                 loginUsername.reportValidity();
-            } else if (response.status == 403) {
+            } else if (response.status === 403) {
                 loginPassword.setCustomValidity("Incorrect password");
                 loginPassword.reportValidity();
             }
@@ -294,7 +294,7 @@ function doLogin(username, password) {
     });
 }
 
-createForm.onsubmit = function(event) {
+createForm.onsubmit = event => {
     event.preventDefault();
     const password = createPassword.value;
     if (password !== createPasswordConfirm.value) {
@@ -307,7 +307,7 @@ createForm.onsubmit = function(event) {
     createForm.submit.disabled = true;
     fetch("/create_account", {method: "POST", body: createJson}).then(response => {
         if (!response.ok) {
-            if (response.status == 409) {
+            if (response.status === 409) {
                 createUsername.setCustomValidity("Username is already taken");
                 createUsername.reportValidity();
             }
@@ -322,19 +322,19 @@ createForm.onsubmit = function(event) {
     });
 }
 
-login.onclick = function() {
+login.onclick = () => {
     formToggles.style.display = "none";
     loginForm.style.display = "block";
 }
 
-loginForm.onsubmit = function(event) {
+loginForm.onsubmit = event => {
     event.preventDefault();
     loginForm.submit.disabled = true;
     doLogin(loginUsername.value, loginPassword.value);
 }
 
 for (const logoutButton of document.getElementsByClassName("logout")) {
-    logoutButton.onclick = function() {
+    logoutButton.onclick = () => {
         const requestToken = localStorage.getItem("requestToken");
         logout.disabled = true;
         logoutEverywhere.disabled = true;
@@ -364,13 +364,13 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
 }
 
 for (const cancel of document.getElementsByClassName("cancel")) {
-    cancel.onclick = function() {
+    cancel.onclick = () => {
         this.parentElement.style.display = "none";
         formToggles.style.display = "inline";
     }
 }
 
-rotate.onclick = function(event) {
+rotate.onclick = event => {
     event.preventDefault();
     rotate.disabled = true;
     const requestToken = localStorage.getItem("requestToken");
@@ -386,7 +386,7 @@ rotate.onclick = function(event) {
     });
 }
 
-configuration.onsubmit = function(event) {
+configuration.onsubmit = event => {
     event.preventDefault();
     configuration.submit.disabled = true;
     const data = JSON.stringify({
