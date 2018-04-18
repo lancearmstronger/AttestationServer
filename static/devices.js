@@ -251,14 +251,25 @@ createPasswordConfirm.oninput = function() {
     }
 }
 
-createUsername.oninput = function() {
-    createUsername.setCustomValidity("");
+function clearValidity() {
+    this.setCustomValidity("");
 }
+
+createUsername.oninput = clearValidity;
+loginUsername.oninput = clearValidity;
+loginPassword.oninput = clearValidity;
 
 function doLogin(username, password) {
     const loginJson = JSON.stringify({username: username, password: password});
     fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
+            if (response.status == 400) {
+                loginUsername.setCustomValidity("Username does not exist");
+                loginUsername.reportValidity();
+            } else if (response.status == 403) {
+                loginPassword.setCustomValidity("Incorrect password");
+                loginPassword.reportValidity();
+            }
             return Promise.reject();
         }
         return response.text();

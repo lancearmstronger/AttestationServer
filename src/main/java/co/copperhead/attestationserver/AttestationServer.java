@@ -302,7 +302,7 @@ public class AttestationServer {
                     "passwordSalt FROM Accounts WHERE username = ?");
             select.bind(1, username);
             if (!select.step()) {
-                throw new GeneralSecurityException("invalid username");
+                throw new UsernameUnavailableException();
             }
             final long userId = select.columnLong(0);
             final byte[] passwordHash = select.columnBlob(1);
@@ -396,6 +396,9 @@ public class AttestationServer {
                 final Session session;
                 try {
                     session = login(username, password);
+                } catch (final UsernameUnavailableException e) {
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
                 } catch (final GeneralSecurityException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(403, -1);
