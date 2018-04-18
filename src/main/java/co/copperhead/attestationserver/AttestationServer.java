@@ -238,6 +238,10 @@ public class AttestationServer {
         return SCrypt.generate(password, salt, 32768, 8, 1, 32);
     }
 
+    private static class UsernameUnavailableException extends GeneralSecurityException {
+        public UsernameUnavailableException() {}
+    }
+
     private static void createAccount(final String username, final String password)
             throws GeneralSecurityException, SQLiteException {
         if (username.length() > 32 || !username.matches("[a-zA-Z0-9]+")) {
@@ -269,7 +273,7 @@ public class AttestationServer {
             insert.dispose();
         } catch (final SQLiteException e) {
             if (e.getErrorCode() == SQLITE_CONSTRAINT_UNIQUE) {
-                throw new GeneralSecurityException("username already registered");
+                throw new UsernameUnavailableException();
             }
             throw e;
         } finally {
@@ -353,6 +357,9 @@ public class AttestationServer {
 
                 try {
                     createAccount(username, password);
+                } catch (final UsernameUnavailableException e) {
+                    exchange.sendResponseHeaders(409, -1);
+                    return;
                 } catch (final GeneralSecurityException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(400, -1);

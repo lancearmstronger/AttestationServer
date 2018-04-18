@@ -251,6 +251,10 @@ createPasswordConfirm.oninput = function() {
     }
 }
 
+createUsername.oninput = function() {
+    createUsername.setCustomValidity("");
+}
+
 function doLogin(username, password) {
     const loginJson = JSON.stringify({username: username, password: password});
     fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
@@ -289,6 +293,10 @@ createForm.onsubmit = function(event) {
     createForm.submit.disabled = true;
     fetch("/create_account", {method: "POST", body: createJson}).then(response => {
         if (!response.ok) {
+            if (response.status == 409) {
+                createUsername.setCustomValidity("Username is already taken");
+                createUsername.reportValidity();
+            }
             return Promise.reject();
         }
         createForm.submit.disabled = false;
