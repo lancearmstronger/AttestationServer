@@ -197,11 +197,7 @@ public class AttestationServer {
                     sample.write(buffer, 0, read);
 
                     if (sample.size() > 64 * 1024) {
-                        final byte[] response = "Sample too large\n".getBytes();
-                        exchange.sendResponseHeaders(400, response.length);
-                        try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(response);
-                        }
+                        exchange.sendResponseHeaders(413, -1);
                         return;
                     }
                 }
@@ -216,11 +212,7 @@ public class AttestationServer {
                     insert.dispose();
                 } catch (final SQLiteException e) {
                     e.printStackTrace();
-                    final byte[] response = "Failed to save data.\n".getBytes();
-                    exchange.sendResponseHeaders(500, response.length);
-                    try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(response);
-                    }
+                    exchange.sendResponseHeaders(500, -1);
                     return;
                 } finally {
                     conn.dispose();
@@ -734,11 +726,7 @@ public class AttestationServer {
                     update.dispose();
                 } catch (final SQLiteException e) {
                     e.printStackTrace();
-                    final byte[] response = "Failed to save data.\n".getBytes();
-                    exchange.sendResponseHeaders(500, response.length);
-                    try (final OutputStream output = exchange.getResponseBody()) {
-                        output.write(response);
-                    }
+                    exchange.sendResponseHeaders(500, -1);
                     return;
                 } finally {
                     conn.dispose();
