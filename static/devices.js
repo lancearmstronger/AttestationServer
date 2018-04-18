@@ -49,6 +49,7 @@ const logoutEverywhere = document.getElementById("logout_everywhere");
 const logoutButtons = document.getElementById("logout_buttons");
 const configuration = document.getElementById("configuration");
 const devices = document.getElementById("devices");
+const demo = document.getElementById("demo");
 const qr = document.getElementById("qr");
 const rotate = document.getElementById("rotate");
 devices.style.display = "block";
@@ -78,7 +79,8 @@ function toYesNoString(value) {
     return value ? "yes" : "no";
 }
 
-function demo() {
+function showDemo() {
+    demo.style.display = "block";
     qr.src = "/account.png";
     qr.alt = "demo account QR code";
     fetchDevices(true);
@@ -94,6 +96,7 @@ function reloadQrCode() {
         }
         return response.blob();
     }).then(imageBlob => {
+        demo.style.display = "none";
         qr.src = URL.createObjectURL(imageBlob);
         qr.alt = "account QR code";
         rotate.style.display = "block";
@@ -222,7 +225,7 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
 
 const token = localStorage.getItem("requestToken");
 if (token === null) {
-    demo();
+    showDemo();
 } else {
     fetch("/account", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (response.status == 403) {
@@ -236,7 +239,7 @@ if (token === null) {
         displayLogin(account);
     }).catch(error => {
         console.log(error);
-        demo();
+        showDemo();
     });
 }
 
@@ -351,7 +354,7 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
             logoutButtons.style.display = "none";
             logout.disabled = false;
             logoutEverywhere.disabled = false;
-            demo();
+            showDemo();
         }).catch(error => {
             logout.disabled = false;
             logoutEverywhere.disabled = false;
