@@ -116,7 +116,7 @@ public class AttestationServer {
                     "passwordSalt BLOB NOT NULL,\n" +
                     "subscribeKey BLOB NOT NULL,\n" +
                     "creationTime INTEGER NOT NULL,\n" +
-                    "verifyInterval INTEGER NOT NULL DEFAULT 3600\n" +
+                    "verifyInterval INTEGER NOT NULL\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
@@ -262,13 +262,14 @@ public class AttestationServer {
         try {
             open(conn, false);
             final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts " +
-                    "(username, passwordHash, passwordSalt, subscribeKey, creationTime) " +
-                    "VALUES (?, ?, ?, ?, ?)");
+                    "(username, passwordHash, passwordSalt, subscribeKey, creationTime, verifyInterval) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)");
             insert.bind(1, username);
             insert.bind(2, passwordHash);
             insert.bind(3, passwordSalt);
             insert.bind(4, subscribeKey);
             insert.bind(5, System.currentTimeMillis());
+            insert.bind(6, DEFAULT_VERIFY_INTERVAL);
             insert.step();
             insert.dispose();
         } catch (final SQLiteException e) {
