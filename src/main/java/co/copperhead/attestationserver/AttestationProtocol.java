@@ -327,6 +327,14 @@ class AttestationProtocol {
 
         final Attestation attestation = new Attestation((X509Certificate) certificates[0]);
 
+        // enforce hardware-based attestation
+        if (attestation.getAttestationSecurityLevel() != Attestation.KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT) {
+            throw new GeneralSecurityException("attestation security level is software");
+        }
+        if (attestation.getKeymasterSecurityLevel() != Attestation.KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT) {
+            throw new GeneralSecurityException("keymaster security level is software");
+        }
+
         // prevent replay attacks
         final byte[] challenge = attestation.getAttestationChallenge();
         if (pendingChallenges.asMap().remove(ByteBuffer.wrap(challenge)) == null) {
@@ -362,6 +370,14 @@ class AttestationProtocol {
         final AuthorizationList teeEnforced = attestation.getTeeEnforced();
 
         // verified boot security checks
+        final RootOfTrust rootOfTrust = teeEnforced.getRootOfTrust();
+        if (rootOfTrust == null) {
+            throw new GeneralSecurityException("missing root of trust");
+        }
+        if (!rootOfTrust.isDeviceLocked()) {
+            throw new GeneralSecurityException("device is not locked");
+        }
+        // may 0 if the bootloader is unlocked so these are checked after isDeviceLocked()
         final int osVersion = teeEnforced.getOsVersion();
         if (osVersion < OS_VERSION_MINIMUM) {
             throw new GeneralSecurityException("OS version too old");
@@ -369,13 +385,6 @@ class AttestationProtocol {
         final int osPatchLevel = teeEnforced.getOsPatchLevel();
         if (osPatchLevel < OS_PATCH_LEVEL_MINIMUM) {
             throw new GeneralSecurityException("OS patch level too old");
-        }
-        final RootOfTrust rootOfTrust = teeEnforced.getRootOfTrust();
-        if (rootOfTrust == null) {
-            throw new GeneralSecurityException("missing root of trust");
-        }
-        if (!rootOfTrust.isDeviceLocked()) {
-            throw new GeneralSecurityException("device is not locked");
         }
 
         final int verifiedBootState = rootOfTrust.getVerifiedBootState();
@@ -411,17 +420,12 @@ class AttestationProtocol {
         if (attestation.getAttestationVersion() < device.attestationVersion) {
             throw new GeneralSecurityException("attestation version below " + device.attestationVersion);
         }
-        if (attestation.getAttestationSecurityLevel() != Attestation.KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT) {
-            throw new GeneralSecurityException("attestation security level is software");
-        }
         if (attestation.getKeymasterVersion() < device.keymasterVersion) {
             throw new GeneralSecurityException("keymaster version below " + device.keymasterVersion);
         }
-        if (attestation.getKeymasterSecurityLevel() != Attestation.KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT) {
-            throw new GeneralSecurityException("keymaster security level is software");
-        }
 
-        return new Verified(device.name, verifiedBootKey, osVersion, osPatchLevel, appVersion, stock);
+        return new Verified(device.name, verifiedBootKey, osVersion, osPatchLevel, appVersion,
+                stock);
     }
 
     private static void verifyCertificateSignatures(Certificate[] certChain)
