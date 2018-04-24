@@ -159,12 +159,15 @@ class AttestationProtocol {
     private static final int ATTESTATION_APP_VERSION_CODE_OFFSET = 9;
 
     private static final String BKL_L04 = "Huawei Honor View 10 (BKL-L04)";
+    private static final String NOKIA_6_1 = "Nokia 6.1";
     private static final String PIXEL_2 = "Google Pixel 2";
     private static final String PIXEL_2_XL = "Google Pixel 2 XL";
+    private static final String SM_G960F = "Samsung Galaxy S9 (SM-G960F)";
     private static final String SM_G960U = "Samsung Galaxy S9 (SM-G960U)";
     private static final String SM_G965F = "Samsung Galaxy S9+ (SM-G965F)";
     private static final String SM_G965_MSM = "Samsung Galaxy S9+ (Snapdragon)";
     private static final String SONY_XPERIA_XA2 = "Sony Xperia XA2";
+    private static final String SONY_XPERIA_XZ1_COMPACT = "Sony Xperia XZ1 Compact";
 
     static class DeviceInfo {
         final String name;
@@ -192,10 +195,14 @@ class AttestationProtocol {
             .<String, DeviceInfo>builder()
             .put("5341E6B2646979A70E57653007A1F310169421EC9BDD9F1A5648F75ADE005AF1",
                     new DeviceInfo(BKL_L04, 2, 3, false))
+            .put("DFC2920C81E136FDD2A510478FDA137B262DC51D449EDD7D0BDB554745725CFE",
+                    new DeviceInfo(NOKIA_6_1, 2, 3, true))
             .put("1962B0538579FFCE9AC9F507C46AFE3B92055BAC7146462283C85C500BE78D82",
                     new DeviceInfo(PIXEL_2, 2, 3, true))
             .put("171616EAEF26009FC46DC6D89F3D24217E926C81A67CE65D2E3A9DC27040C7AB",
                     new DeviceInfo(PIXEL_2_XL, 2, 3, true))
+            .put("33D9484FD512E610BCF00C502827F3D55A415088F276C6506657215E622FA770",
+                    new DeviceInfo(SM_G960F, 1, 2, false))
             .put("266869F7CF2FB56008EFC4BE8946C8F84190577F9CA688F59C72DD585E696488",
                     new DeviceInfo(SM_G960U, 1, 2, false))
             .put("D1C53B7A931909EC37F1939B14621C6E4FD19BF9079D195F86B3CEA47CD1F92D",
@@ -204,6 +211,8 @@ class AttestationProtocol {
                     new DeviceInfo(SM_G965_MSM, 1, 2, false))
             .put("4285AD64745CC79B4499817F264DC16BF2AF5163AF6C328964F39E61EC84693E",
                     new DeviceInfo(SONY_XPERIA_XA2, 2, 3, true))
+            .put("54A9F21E9CFAD3A2D028517EF333A658302417DB7FB75E0A109A019646CC5F39",
+                    new DeviceInfo(SONY_XPERIA_XZ1_COMPACT, 2, 3, true))
             .build();
 
     private static final String GOOGLE_ROOT_CERTIFICATE =
