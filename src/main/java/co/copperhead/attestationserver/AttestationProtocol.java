@@ -81,7 +81,7 @@ class AttestationProtocol {
     // short compressedChainLength
     // byte[] compressedChain { [short encodedCertificateLength, byte[] encodedCertificate] }
     // byte[] fingerprint (length: FINGERPRINT_LENGTH)
-    // byte osEnforcedFlags
+    // int osEnforcedFlags (byte rather than int for PROTOCOL_VERSION < 2)
     // }
     // byte[] signature (rest of message)
     //
@@ -120,7 +120,7 @@ class AttestationProtocol {
     // the outer signature and the rest of the chain for pinning the expected chain. It enforces
     // downgrade protection for the OS version/patch (bootloader/TEE enforced) and app version (OS
     // enforced) by keeping them updated.
-    static final byte PROTOCOL_VERSION = 1;
+    static final byte PROTOCOL_VERSION = 2;
     private static final byte PROTOCOL_VERSION_MINIMUM = 1;
     // can become longer in the future, but this is the minimum length
     private static final byte CHALLENGE_MESSAGE_LENGTH = 1 + CHALLENGE_LENGTH * 2;
@@ -727,7 +727,12 @@ class AttestationProtocol {
         final byte[] fingerprint = new byte[FINGERPRINT_LENGTH];
         deserializer.get(fingerprint);
 
-        final byte osEnforcedFlags = deserializer.get();
+        final int osEnforcedFlags;
+        if (version < 2) {
+            osEnforcedFlags = deserializer.get();
+        } else {
+            osEnforcedFlags = deserializer.getInt();
+        }
         if ((osEnforcedFlags & ~OS_ENFORCED_FLAGS_ALL) != 0) {
             //Log.w(TAG, "unknown OS enforced flag set (flags: " + Integer.toBinaryString(osEnforcedFlags) + ")");
         }
