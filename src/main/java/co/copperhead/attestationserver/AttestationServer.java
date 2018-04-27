@@ -147,6 +147,7 @@ public class AttestationServer {
                     "adbEnabled INTEGER NOT NULL CHECK (adbEnabled in (0, 1)),\n" +
                     "addUsersWhenLocked INTEGER NOT NULL CHECK (addUsersWhenLocked in (0, 1)),\n" +
                     "denyNewUsb INTEGER NOT NULL CHECK (denyNewUsb in (0, 1)),\n" +
+                    "oemUnlockAllowed INTEGER CHECK (oemUnlockAllowed in (0, 1)),\n" +
                     "verifiedTimeFirst INTEGER NOT NULL,\n" +
                     "verifiedTimeLast INTEGER NOT NULL,\n" +
                     "userId INTEGER REFERENCES Accounts (userId)\n" +
@@ -757,8 +758,9 @@ public class AttestationServer {
                     "pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, " +
                     "hex(pinnedVerifiedBootKey), pinnedOsVersion, pinnedOsPatchLevel, " +
                     "pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, " +
-                    "deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, verifiedTimeFirst, " +
-                    "verifiedTimeLast FROM Devices WHERE userId is ? ORDER BY verifiedTimeFirst");
+                    "deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, oemUnlockAllowed, " +
+                    "verifiedTimeFirst, verifiedTimeLast " +
+                    "FROM Devices WHERE userId is ? ORDER BY verifiedTimeFirst");
             if (userId != 0) {
                 select.bind(1, userId);
             }
@@ -791,8 +793,11 @@ public class AttestationServer {
                 device.add("adbEnabled", select.columnInt(12));
                 device.add("addUsersWhenLocked", select.columnInt(13));
                 device.add("denyNewUsb", select.columnInt(14));
-                device.add("verifiedTimeFirst", select.columnLong(15));
-                device.add("verifiedTimeLast", select.columnLong(16));
+                if (!select.columnNull(15)) {
+                    device.add("oemUnlockAllowed", select.columnInt(15));
+                }
+                device.add("verifiedTimeFirst", select.columnLong(16));
+                device.add("verifiedTimeLast", select.columnLong(17));
 
                 final SQLiteStatement history = conn.prepare("SELECT time, strong, teeEnforced, " +
                         "osEnforced FROM Attestations WHERE fingerprint = ? ORDER BY time");

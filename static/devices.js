@@ -74,7 +74,7 @@ function formatOsPatchLevel(osPatchLevel) {
 
 function toYesNoString(value) {
     if (value === undefined) {
-        return "undefined";
+        return "unknown";
     }
     return value ? "yes" : "no";
 }
@@ -165,7 +165,8 @@ Accessibility service(s) enabled: ${toYesNoString(device.accessibility)}<br/>
 Device administrator(s) enabled: ${deviceAdminStrings[device.deviceAdmin]}<br/>
 Android Debug Bridge enabled: ${toYesNoString(device.adbEnabled)}<br/>
 Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
-Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}
+Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}<br/>
+OEM unlocking allowed: ${toYesNoString(device.oemUnlockAllowed)}
 <h3>Attestation history</h3>
 First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
 Last verified time: ${new Date(device.verifiedTimeLast)}<br/>

@@ -136,6 +136,7 @@ class AttestationProtocol {
     private static final int OS_ENFORCED_FLAGS_ENROLLED_FINGERPRINTS = 1 << 5;
     private static final int OS_ENFORCED_FLAGS_DENY_NEW_USB = 1 << 6;
     private static final int OS_ENFORCED_FLAGS_DEVICE_ADMIN_NON_SYSTEM = 1 << 7;
+    private static final int OS_ENFORCED_FLAGS_OEM_UNLOCK_ALLOWED = 1 << 8;
     private static final int OS_ENFORCED_FLAGS_ALL =
             OS_ENFORCED_FLAGS_USER_PROFILE_SECURE |
             OS_ENFORCED_FLAGS_ACCESSIBILITY |
@@ -144,7 +145,8 @@ class AttestationProtocol {
             OS_ENFORCED_FLAGS_ADD_USERS_WHEN_LOCKED |
             OS_ENFORCED_FLAGS_ENROLLED_FINGERPRINTS |
             OS_ENFORCED_FLAGS_DENY_NEW_USB |
-            OS_ENFORCED_FLAGS_DEVICE_ADMIN_NON_SYSTEM;
+            OS_ENFORCED_FLAGS_DEVICE_ADMIN_NON_SYSTEM |
+            OS_ENFORCED_FLAGS_OEM_UNLOCK_ALLOWED;
 
     private static final String ATTESTATION_APP_PACKAGE_NAME = "co.copperhead.attestation";
     private static final int ATTESTATION_APP_MINIMUM_VERSION = 14;
@@ -509,8 +511,8 @@ class AttestationProtocol {
             final boolean accessibility, final boolean deviceAdmin,
             final boolean deviceAdminNonSystem, final boolean adbEnabled,
             final boolean addUsersWhenLocked, final boolean enrolledFingerprints,
-            final boolean denyNewUsb) throws GeneralSecurityException, IOException {
-
+            final boolean denyNewUsb, final boolean oemUnlockAllowed)
+            throws GeneralSecurityException, IOException {
         final String fingerprintHex = BaseEncoding.base16().encode(fingerprint);
         final byte[] currentFingerprint = getFingerprint(attestationCertificates[0]);
         final boolean hasPersistentKey = !Arrays.equals(currentFingerprint, fingerprint);
@@ -598,7 +600,8 @@ class AttestationProtocol {
                         "pinnedOsVersion = ?, pinnedOsPatchLevel = ?, pinnedAppVersion = ?, " +
                         "userProfileSecure = ?, enrolledFingerprints = ?, accessibility = ?, " +
                         "deviceAdmin = ?, adbEnabled = ?, addUsersWhenLocked = ?, " +
-                        "denyNewUsb = ?, verifiedTimeLast = ? WHERE fingerprint = ?");
+                        "denyNewUsb = ?, oemUnlockAllowed = ?, verifiedTimeLast = ? " +
+                        "WHERE fingerprint = ?");
                 update.bind(1, verified.osVersion);
                 update.bind(2, verified.osPatchLevel);
                 update.bind(3, verified.appVersion);
@@ -609,8 +612,11 @@ class AttestationProtocol {
                 update.bind(8, adbEnabled ? 1 : 0);
                 update.bind(9, addUsersWhenLocked ? 1 : 0);
                 update.bind(10, denyNewUsb ? 1 : 0);
-                update.bind(11, now);
-                update.bind(12, fingerprint);
+                if (verified.appVersion > 10 + ATTESTATION_APP_VERSION_CODE_OFFSET) {
+                    update.bind(11, oemUnlockAllowed ? 1 : 0);
+                }
+                update.bind(12, now);
+                update.bind(13, fingerprint);
                 update.step();
                 update.dispose();
             } else {
@@ -621,8 +627,8 @@ class AttestationProtocol {
                         "pinnedVerifiedBootKey, pinnedOsVersion, pinnedOsPatchLevel, " +
                         "pinnedAppVersion, userProfileSecure, enrolledFingerprints, " +
                         "accessibility, deviceAdmin, adbEnabled, addUsersWhenLocked, " +
-                        "denyNewUsb, verifiedTimeFirst, verifiedTimeLast, userId) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        "denyNewUsb, oemUnlockAllowed, verifiedTimeFirst, verifiedTimeLast, " +
+                        "userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 insert.bind(1, fingerprint);
                 insert.bind(2, attestationCertificates[0].getEncoded());
                 insert.bind(3, attestationCertificates[1].getEncoded());
@@ -638,10 +644,13 @@ class AttestationProtocol {
                 insert.bind(13, adbEnabled ? 1 : 0);
                 insert.bind(14, addUsersWhenLocked ? 1 : 0);
                 insert.bind(15, denyNewUsb ? 1 : 0);
-                insert.bind(16, now);
+                if (verified.appVersion > 10 + ATTESTATION_APP_VERSION_CODE_OFFSET) {
+                    insert.bind(16, oemUnlockAllowed ? 1 : 0);
+                }
                 insert.bind(17, now);
+                insert.bind(18, now);
                 if (userId != 0) {
-                    insert.bind(18, userId);
+                    insert.bind(19, userId);
                 }
                 insert.step();
                 insert.dispose();
@@ -675,6 +684,10 @@ class AttestationProtocol {
                     toYesNoString(addUsersWhenLocked)));
             osEnforced.append(String.format("Disallow new USB peripherals when locked: %s\n",
                     toYesNoString(denyNewUsb)));
+            if (verified.appVersion > 10 + ATTESTATION_APP_VERSION_CODE_OFFSET) {
+                osEnforced.append(String.format("OEM unlocking allowed: %s\n",
+                            toYesNoString(oemUnlockAllowed)));
+            }
 
             final String teeEnforcedString = teeEnforced.toString();
             final String osEnforcedString = osEnforced.toString();
@@ -752,6 +765,7 @@ class AttestationProtocol {
         final boolean addUsersWhenLocked = (osEnforcedFlags & OS_ENFORCED_FLAGS_ADD_USERS_WHEN_LOCKED) != 0;
         final boolean enrolledFingerprints = (osEnforcedFlags & OS_ENFORCED_FLAGS_ENROLLED_FINGERPRINTS) != 0;
         final boolean denyNewUsb = (osEnforcedFlags & OS_ENFORCED_FLAGS_DENY_NEW_USB) != 0;
+        final boolean oemUnlockAllowed = (osEnforcedFlags & OS_ENFORCED_FLAGS_OEM_UNLOCK_ALLOWED) != 0;
 
         if (deviceAdminNonSystem && !deviceAdmin) {
             throw new GeneralSecurityException("invalid device administrator state");
@@ -769,6 +783,6 @@ class AttestationProtocol {
 
         verify(fingerprint, pendingChallenges, userId, paired, deserializer.asReadOnlyBuffer(), signature,
                 certificates, userProfileSecure, accessibility, deviceAdmin, deviceAdminNonSystem,
-                adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb);
+                adbEnabled, addUsersWhenLocked, enrolledFingerprints, denyNewUsb, oemUnlockAllowed);
     }
 }
