@@ -364,7 +364,7 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
 }
 
 for (const cancel of document.getElementsByClassName("cancel")) {
-    cancel.onclick = () => {
+    cancel.onclick = function() {
         this.parentElement.style.display = "none";
         formToggles.style.display = "inline";
     }
