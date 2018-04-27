@@ -616,7 +616,13 @@ class AttestationProtocol {
             } else {
                 verifySignature(attestationCertificates[0].getPublicKey(), signedMessage, signature);
 
-                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                final SQLiteStatement insert = conn.prepare("INSERT INTO Devices " +
+                        "(fingerprint, pinnedCertificate0, pinnedCertificate1, pinnedCertificate2, " +
+                        "pinnedVerifiedBootKey, pinnedOsVersion, pinnedOsPatchLevel, " +
+                        "pinnedAppVersion, userProfileSecure, enrolledFingerprints, " +
+                        "accessibility, deviceAdmin, adbEnabled, addUsersWhenLocked, " +
+                        "denyNewUsb, verifiedTimeFirst, verifiedTimeLast, userId) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 insert.bind(1, fingerprint);
                 insert.bind(2, attestationCertificates[0].getEncoded());
                 insert.bind(3, attestationCertificates[1].getEncoded());
@@ -673,7 +679,9 @@ class AttestationProtocol {
             final String teeEnforcedString = teeEnforced.toString();
             final String osEnforcedString = osEnforced.toString();
 
-            final SQLiteStatement insert = conn.prepare("INSERT into Attestations VALUES (?, ?, ?, ?, ?)");
+            final SQLiteStatement insert = conn.prepare("INSERT INTO Attestations " +
+                    "(fingerprint, time, strong, teeEnforced, osEnforced)" +
+                    "VALUES (?, ?, ?, ?, ?)");
             insert.bind(1, fingerprint);
             insert.bind(2, now);
             insert.bind(3, hasPersistentKey ? 1 : 0);

@@ -205,7 +205,8 @@ public class AttestationServer {
                 final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
                 try {
                     open(conn, false);
-                    final SQLiteStatement insert = conn.prepare("INSERT INTO Samples VALUES (?, ?)");
+                    final SQLiteStatement insert = conn.prepare("INSERT INTO Samples " +
+                           "(sample, time) VALUES (?, ?)");
                     insert.bind(1, sample.toByteArray());
                     insert.bind(2, System.currentTimeMillis());
                     insert.step();
