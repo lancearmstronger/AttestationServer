@@ -30,6 +30,7 @@
                 <button id="logout_everywhere" class="logout">Logout everywhere</button>
             </span>
             <form id="create_form" class="hidden">
+                <h3>Create account:</h3>
                 <label>Username: <input id="create_username" type="text" autocomplete="username" maxlength="32" pattern="[a-zA-Z0-9]+" required="required"/></label><br/>
                 <label>Password: <input id="create_password" type="password" autocomplete="new-password" maxlength="4096" minlength="8" required="required"/></label><br/>
                 <label>Confirm password: <input id="create_password_confirm" type="password" autocomplete="new-password" maxlength="4096" minlength="8" required="required"/></label><br/>
@@ -39,6 +40,7 @@
                 <button type="button" class="cancel">Cancel</button>
             </form>
             <form id="login_form" class="hidden">
+                <h3>Login:</h3>
                 <label>Username: <input id="login_username" type="text" autocomplete="username" maxlength="32" pattern="[a-zA-Z0-9]+" required="required"/></label><br/>
                 <label>Password: <input id="login_password" type="password" autocomplete="current-password" maxlength="4096" minlength="8" required="required"/></label><br/>
                 <button name="submit">Login</button>
