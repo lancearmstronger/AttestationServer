@@ -59,6 +59,8 @@ import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
 import javax.json.JsonWriter;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
 
 import attestationserver.AttestationProtocol.DeviceInfo;
 
@@ -643,6 +645,24 @@ public class AttestationServer {
                 accountJson.add("username", account.username);
                 accountJson.add("verifyInterval", account.verifyInterval);
                 accountJson.add("alertDelay", account.alertDelay);
+
+                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                try {
+                    open(conn, true);
+                    final SQLiteStatement select = conn.prepare("SELECT address FROM EmailAddresses WHERE userId = ?");
+                    select.bind(1, account.userId);
+                    if (select.step()) {
+                        accountJson.add("email", select.columnString(0));
+                    }
+                    select.dispose();
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1);
+                    return;
+                } finally {
+                    conn.dispose();
+                }
+
                 exchange.sendResponseHeaders(200, 0);
                 try (final OutputStream output = exchange.getResponseBody();
                         final JsonWriter writer = Json.createWriter(output)) {
@@ -714,12 +734,14 @@ public class AttestationServer {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 final int verifyInterval;
                 final int alertDelay;
+                final String email;
                 final String requestToken;
                 try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
                     final JsonObject object = reader.readObject();
                     requestToken = object.getString("requestToken");
                     verifyInterval = object.getInt("verifyInterval");
                     alertDelay = object.getInt("alertDelay");
+                    email = object.getString("email");
                 } catch (final ClassCastException | JsonException | NullPointerException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(400, -1);
@@ -741,15 +763,42 @@ public class AttestationServer {
                     return;
                 }
 
+                if (!email.isEmpty()) {
+                    try {
+                        new InternetAddress(email).validate();
+                    } catch (final AddressException e) {
+                        exchange.sendResponseHeaders(400, -1);
+                        return;
+                    }
+                }
+
                 final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                 try {
                     open(conn, false);
+
+                    conn.exec("BEGIN TRANSACTION");
+
                     final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ?, alertDelay = ? WHERE userId = ?");
                     update.bind(1, verifyInterval);
                     update.bind(2, alertDelay);
                     update.bind(3, account.userId);
                     update.step();
                     update.dispose();
+
+                    final SQLiteStatement delete = conn.prepare("DELETE FROM EmailAddresses WHERE userId = ?");
+                    delete.bind(1, account.userId);
+                    delete.step();
+                    delete.dispose();
+
+                    if (!email.isEmpty()) {
+                        final SQLiteStatement insert = conn.prepare("INSERT INTO EmailAddresses (userId, address) VALUES (?, ?)");
+                        insert.bind(1, account.userId);
+                        insert.bind(2, email);
+                        insert.step();
+                        insert.dispose();
+                    }
+
+                    conn.exec("COMMIT TRANSACTION");
                 } catch (final SQLiteException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(500, -1);
