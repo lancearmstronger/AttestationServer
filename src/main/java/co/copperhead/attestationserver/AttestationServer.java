@@ -112,6 +112,11 @@ public class AttestationServer {
         try {
             open(attestationConn, false);
             attestationConn.exec(
+                    "CREATE TABLE IF NOT EXISTS Configuration (\n" +
+                    "key TEXT PRIMARY KEY NOT NULL,\n" +
+                    "value\n" +
+                    ")");
+            attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Accounts (\n" +
                     "userId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
                     "username TEXT UNIQUE NOT NULL,\n" +
