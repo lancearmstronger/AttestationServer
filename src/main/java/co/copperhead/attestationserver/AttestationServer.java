@@ -74,7 +74,7 @@ public class AttestationServer {
     private static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
     private static final byte[] DEMO_SUBSCRIBE_KEY = new byte[32];
-    private static final long SESSION_LENGTH = 1000 * 60 * 60 * 48;
+    private static final long SESSION_LENGTH = 48 * 60 * 60 * 1000;
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
@@ -154,6 +154,8 @@ public class AttestationServer {
                     ")");
             attestationConn.exec("CREATE INDEX IF NOT EXISTS Devices_userId_verifiedTimeFirst " +
                     "ON Devices (userId, verifiedTimeFirst)");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS Devices_userId_verifiedTimeLast " +
+                    "ON Devices (userId, verifiedTimeLast)");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
                     "fingerprint BLOB NOT NULL REFERENCES Devices (fingerprint),\n" +
@@ -168,6 +170,8 @@ public class AttestationServer {
         } finally {
             attestationConn.dispose();
         }
+
+        new Thread(new AlertDispatcher()).start();
 
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
         server.createContext("/submit", new SubmitHandler());
