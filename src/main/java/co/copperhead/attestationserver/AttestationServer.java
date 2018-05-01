@@ -121,6 +121,12 @@ public class AttestationServer {
                     "alertDelay INTEGER NOT NULL\n" +
                     ")");
             attestationConn.exec(
+                    "CREATE TABLE IF NOT EXISTS EmailAddresses (\n" +
+                    "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
+                    "address TEXT NOT NULL,\n" +
+                    "PRIMARY KEY (userId, address)\n" +
+                    ")");
+            attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
                     "sessionId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
                     "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
