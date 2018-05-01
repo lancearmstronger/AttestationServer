@@ -18,6 +18,7 @@ import com.google.common.io.BaseEncoding;
 
 class AlertDispatcher implements Runnable {
     private static final long WAIT_MS = 15 * 60 * 1000;
+    private static final int TIMEOUT_MS = 30 * 1000;
 
     private final SQLiteConnection conn;
     private final SQLiteStatement selectConfiguration;
@@ -72,6 +73,9 @@ class AlertDispatcher implements Runnable {
                 props.put("mail.smtps.auth", true);
                 props.put("mail.smtps.host", host);
                 props.put("mail.smtps.port", port);
+                props.put("mail.smtps.connectiontimeout", Integer.toString(TIMEOUT_MS));
+                props.put("mail.smtps.timeout", Integer.toString(TIMEOUT_MS));
+                props.put("mail.smtps.writetimeout", Integer.toString(TIMEOUT_MS));
 
                 Session session = Session.getInstance(props,
                         new javax.mail.Authenticator() {
