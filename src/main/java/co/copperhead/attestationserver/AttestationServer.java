@@ -71,6 +71,7 @@ public class AttestationServer {
     private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
     private static final int DEFAULT_VERIFY_INTERVAL = 14400;
+    private static final int DEFAULT_ALERT_DELAY = 24 * 60 * 60;
     private static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
     private static final byte[] DEMO_SUBSCRIBE_KEY = new byte[32];
@@ -116,7 +117,8 @@ public class AttestationServer {
                     "passwordSalt BLOB NOT NULL,\n" +
                     "subscribeKey BLOB NOT NULL,\n" +
                     "creationTime INTEGER NOT NULL,\n" +
-                    "verifyInterval INTEGER NOT NULL\n" +
+                    "verifyInterval INTEGER NOT NULL,\n" +
+                    "alertDelay INTEGER NOT NULL\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
@@ -260,7 +262,7 @@ public class AttestationServer {
         try {
             open(conn, false);
             final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts " +
-                    "(username, passwordHash, passwordSalt, subscribeKey, creationTime, verifyInterval) " +
+                    "(username, passwordHash, passwordSalt, subscribeKey, creationTime, verifyInterval, alertDelay) " +
                     "VALUES (?, ?, ?, ?, ?, ?)");
             insert.bind(1, username);
             insert.bind(2, passwordHash);
@@ -268,6 +270,7 @@ public class AttestationServer {
             insert.bind(4, subscribeKey);
             insert.bind(5, System.currentTimeMillis());
             insert.bind(6, DEFAULT_VERIFY_INTERVAL);
+            insert.bind(7, DEFAULT_ALERT_DELAY);
             insert.step();
             insert.dispose();
         } catch (final SQLiteException e) {
@@ -535,13 +538,15 @@ public class AttestationServer {
         final String username;
         final byte[] subscribeKey;
         final int verifyInterval;
+        final int alertDelay;
 
         Account(final long userId, final String username, final byte[] subscribeKey,
-                final int verifyInterval) {
+                final int verifyInterval, final int alertDelay) {
             this.userId = userId;
             this.username = username;
             this.subscribeKey = subscribeKey;
             this.verifyInterval = verifyInterval;
+            this.alertDelay = alertDelay;
         }
     }
 
@@ -584,7 +589,7 @@ public class AttestationServer {
             open(conn, !end);
 
             final SQLiteStatement select = conn.prepare("SELECT cookieToken, requestToken, " +
-                    "expiryTime, username, subscribeKey, Accounts.userId, verifyInterval " +
+                    "expiryTime, username, subscribeKey, Accounts.userId, verifyInterval, alertDelay " +
                     "FROM Sessions " +
                     "INNER JOIN Accounts on Accounts.userId = Sessions.userId " +
                     "WHERE sessionId = ?");
@@ -611,7 +616,7 @@ public class AttestationServer {
             }
 
             return new Account(select.columnLong(5), select.columnString(3), select.columnBlob(4),
-                    select.columnInt(6));
+                    select.columnInt(6), select.columnInt(7));
         } catch (final SQLiteException e) {
             exchange.sendResponseHeaders(500, -1);
             return null;
@@ -631,6 +636,7 @@ public class AttestationServer {
                 final JsonObjectBuilder accountJson = Json.createObjectBuilder();
                 accountJson.add("username", account.username);
                 accountJson.add("verifyInterval", account.verifyInterval);
+                accountJson.add("alertDelay", account.alertDelay);
                 exchange.sendResponseHeaders(200, 0);
                 try (final OutputStream output = exchange.getResponseBody();
                         final JsonWriter writer = Json.createWriter(output)) {
@@ -701,11 +707,13 @@ public class AttestationServer {
         public void handle(final HttpExchange exchange) throws IOException {
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 final int verifyInterval;
+                final int alertDelay;
                 final String requestToken;
                 try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
                     final JsonObject object = reader.readObject();
                     requestToken = object.getString("requestToken");
                     verifyInterval = object.getInt("verifyInterval");
+                    alertDelay = object.getInt("alertDelay");
                 } catch (final ClassCastException | JsonException | NullPointerException e) {
                     e.printStackTrace();
                     exchange.sendResponseHeaders(400, -1);
@@ -722,12 +730,18 @@ public class AttestationServer {
                     return;
                 }
 
+                if (alertDelay < 7200 || alertDelay > 1209600 || alertDelay <= verifyInterval) {
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+
                 final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
                 try {
                     open(conn, false);
-                    final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ? WHERE userId = ?");
+                    final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ?, alertDelay = ? WHERE userId = ?");
                     update.bind(1, verifyInterval);
-                    update.bind(2, account.userId);
+                    update.bind(2, alertDelay);
+                    update.bind(3, account.userId);
                     update.step();
                     update.dispose();
                 } catch (final SQLiteException e) {

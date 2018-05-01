@@ -8,7 +8,6 @@ import com.google.common.io.BaseEncoding;
 
 class AlertDispatcher implements Runnable {
     private static final long WAIT_MS = 30 * 1000;
-    private static final long DEFAULT_ALERT_MS = 24 * 60 * 60 * 1000;
 
     private final SQLiteConnection conn;
     private final SQLiteStatement selectAccounts;
@@ -18,7 +17,7 @@ class AlertDispatcher implements Runnable {
         conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
             AttestationServer.open(conn, true);
-            selectAccounts = conn.prepare("SELECT userId from Accounts");
+            selectAccounts = conn.prepare("SELECT userId, alertDelay from Accounts");
             selectExpired = conn.prepare("SELECT fingerprint FROM Devices " +
                     "WHERE userId = ? AND verifiedTimeLast < ?");
         } catch (final SQLiteException e) {
@@ -36,10 +35,11 @@ class AlertDispatcher implements Runnable {
                 selectAccounts.reset();
                 while (selectAccounts.step()) {
                     final long userId = selectAccounts.columnLong(0);
+                    final int alertDelay = selectAccounts.columnInt(1);
 
                     selectExpired.reset();
                     selectExpired.bind(1, userId);
-                    selectExpired.bind(2, System.currentTimeMillis() - DEFAULT_ALERT_MS);
+                    selectExpired.bind(2, System.currentTimeMillis() - alertDelay * 1000);
                     while (selectExpired.step()) {
                         final byte[] fingerprint = selectExpired.columnBlob(0);
                         final String encoded = BaseEncoding.base16().encode(fingerprint);

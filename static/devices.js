@@ -114,6 +114,7 @@ function displayLogin(account) {
     loginStatus.innerHTML = `Logged in as <strong>${account.username}</strong>.`
     configuration.style.display = "inline";
     configuration.verify_interval.value = account.verifyInterval / 60 / 60;
+    configuration.alert_delay.value = account.alertDelay / 60 / 60;
     reloadQrCode();
     fetchDevices(false);
 }
@@ -262,6 +263,7 @@ function clearValidity() {
 createUsername.oninput = clearValidity;
 loginUsername.oninput = clearValidity;
 loginPassword.oninput = clearValidity;
+configuration.alert_delay.oninput = clearValidity;
 
 function doLogin(username, password) {
     const loginJson = JSON.stringify({username: username, password: password});
@@ -389,10 +391,21 @@ rotate.onclick = event => {
 
 configuration.onsubmit = event => {
     event.preventDefault();
+
+    const verifyInterval = parseInt(configuration.verify_interval.value);
+    const alertDelay = parseInt(configuration.alert_delay.value);
+
+    if (alertDelay <= verifyInterval) {
+        configuration.alert_delay.setCustomValidity("Alert delay must be larger than verify interval");
+        configuration.alert_delay.reportValidity();
+        return;
+    }
+
     configuration.submit.disabled = true;
     const data = JSON.stringify({
         "requestToken": localStorage.getItem("requestToken"),
-        "verifyInterval": parseInt(configuration.verify_interval.value) * 60 * 60
+        "verifyInterval": verifyInterval * 60 * 60,
+        "alertDelay": alertDelay * 60 * 60
     });
     fetch("/configuration", {method: "POST", body: data, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
