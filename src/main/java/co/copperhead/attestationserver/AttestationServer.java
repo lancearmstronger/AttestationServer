@@ -122,14 +122,14 @@ public class AttestationServer {
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS EmailAddresses (\n" +
-                    "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
+                    "userId INTEGER NOT NULL REFERENCES Accounts (userId) ON DELETE CASCADE,\n" +
                     "address TEXT NOT NULL,\n" +
                     "PRIMARY KEY (userId, address)\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
                     "sessionId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
-                    "userId INTEGER NOT NULL REFERENCES Accounts (userId),\n" +
+                    "userId INTEGER NOT NULL REFERENCES Accounts (userId) ON DELETE CASCADE,\n" +
                     "cookieToken BLOB NOT NULL,\n" +
                     "requestToken BLOB NOT NULL,\n" +
                     "expiryTime INTEGER NOT NULL\n" +
@@ -158,7 +158,7 @@ public class AttestationServer {
                     "oemUnlockAllowed INTEGER CHECK (oemUnlockAllowed in (0, 1)),\n" +
                     "verifiedTimeFirst INTEGER NOT NULL,\n" +
                     "verifiedTimeLast INTEGER NOT NULL,\n" +
-                    "userId INTEGER REFERENCES Accounts (userId)\n" +
+                    "userId INTEGER REFERENCES Accounts (userId) ON DELETE CASCADE\n" +
                     ")");
             attestationConn.exec("CREATE INDEX IF NOT EXISTS Devices_userId_verifiedTimeFirst " +
                     "ON Devices (userId, verifiedTimeFirst)");
@@ -166,7 +166,7 @@ public class AttestationServer {
                     "ON Devices (userId, verifiedTimeLast)");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
-                    "fingerprint BLOB NOT NULL REFERENCES Devices (fingerprint),\n" +
+                    "fingerprint BLOB NOT NULL REFERENCES Devices (fingerprint) ON DELETE CASCADE,\n" +
                     "time BLOB NOT NULL,\n" +
                     "strong INTEGER NOT NULL CHECK (strong in (0, 1)),\n" +
                     "teeEnforced TEXT NOT NULL,\n" +
