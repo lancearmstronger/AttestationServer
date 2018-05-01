@@ -55,8 +55,8 @@
             <button id="rotate" class="hidden">Rotate device subscription key</button>
             <form id="configuration" class="hidden">
                 <h2>Configuration:</h2>
-                <label>Verify interval (hours): <input name="verify_interval" type="number" min="1" max="168"/></label><br/>
-                <label>Permitted delay until alerts (hours): <input name="alert_delay" type="number" min="2" max="336"/></label><br/>
+                <label>Verify interval (hours): <input name="verify_interval" type="number" min="1" max="168" required="required"/></label><br/>
+                <label>Permitted delay until alerts (hours): <input name="alert_delay" type="number" min="2" max="336" required="required"/></label><br/>
                 <label>Alert email: <input name="email" type="email"/></label><br/>
                 <button name="submit">Set configuration</button>
             </form>
