@@ -115,6 +115,9 @@ function displayLogin(account) {
     configuration.style.display = "inline";
     configuration.verify_interval.value = account.verifyInterval / 60 / 60;
     configuration.alert_delay.value = account.alertDelay / 60 / 60;
+    if (account.email !== undefined) {
+        configuration.email.value = account.email;
+    }
     reloadQrCode();
     fetchDevices(false);
 }
@@ -405,7 +408,8 @@ configuration.onsubmit = event => {
     const data = JSON.stringify({
         "requestToken": localStorage.getItem("requestToken"),
         "verifyInterval": verifyInterval * 60 * 60,
-        "alertDelay": alertDelay * 60 * 60
+        "alertDelay": alertDelay * 60 * 60,
+        "email": configuration.email.value
     });
     fetch("/configuration", {method: "POST", body: data, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
