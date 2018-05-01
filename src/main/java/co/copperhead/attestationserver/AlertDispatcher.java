@@ -68,7 +68,7 @@ class AlertDispatcher implements Runnable {
                     continue;
                 }
 
-                Properties props = new Properties();
+                final Properties props = new Properties();
                 props.put("mail.transport.protocol.rfc822", "smtps");
                 props.put("mail.smtps.auth", true);
                 props.put("mail.smtps.host", host);
@@ -77,7 +77,7 @@ class AlertDispatcher implements Runnable {
                 props.put("mail.smtps.timeout", Integer.toString(TIMEOUT_MS));
                 props.put("mail.smtps.writetimeout", Integer.toString(TIMEOUT_MS));
 
-                Session session = Session.getInstance(props,
+                final Session session = Session.getInstance(props,
                         new javax.mail.Authenticator() {
                             protected PasswordAuthentication getPasswordAuthentication() {
                                 return new PasswordAuthentication(username, password);
@@ -115,7 +115,8 @@ class AlertDispatcher implements Runnable {
                                 message.setRecipients(Message.RecipientType.TO,
                                         InternetAddress.parse(address));
                                 message.setSubject("Devices have failed to provide valid attestations before the expiry time");
-                                message.setText("The following devices have failed to provide valid attestations before the expiry time:\n\n" + body.toString());
+                                message.setText("The following devices have failed to provide valid attestations before the expiry time:\n\n" +
+                                        body.toString());
 
                                 Transport.send(message);
                             } catch (final MessagingException e) {
