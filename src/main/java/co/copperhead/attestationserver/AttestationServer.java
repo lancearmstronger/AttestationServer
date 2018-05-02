@@ -117,8 +117,8 @@ public class AttestationServer {
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Accounts (\n" +
-                    "userId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
-                    "username TEXT UNIQUE NOT NULL,\n" +
+                    "userId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n" +
+                    "username TEXT NOT NULL UNIQUE,\n" +
                     "passwordHash BLOB NOT NULL,\n" +
                     "passwordSalt BLOB NOT NULL,\n" +
                     "subscribeKey BLOB NOT NULL,\n" +
@@ -134,7 +134,7 @@ public class AttestationServer {
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Sessions (\n" +
-                    "sessionId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n" +
+                    "sessionId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n" +
                     "userId INTEGER NOT NULL REFERENCES Accounts (userId) ON DELETE CASCADE,\n" +
                     "cookieToken BLOB NOT NULL,\n" +
                     "requestToken BLOB NOT NULL,\n" +
@@ -146,7 +146,7 @@ public class AttestationServer {
                     "ON Sessions (userId)");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Devices (\n" +
-                    "fingerprint BLOB PRIMARY KEY NOT NULL,\n" +
+                    "fingerprint BLOB NOT NULL PRIMARY KEY,\n" +
                     "pinnedCertificate0 BLOB NOT NULL,\n" +
                     "pinnedCertificate1 BLOB NOT NULL,\n" +
                     "pinnedCertificate2 BLOB NOT NULL,\n" +
