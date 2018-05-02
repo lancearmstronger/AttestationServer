@@ -6,7 +6,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
         <title>Device integrity monitoring</title>
         <meta name="description" content="Copperhead's hardware-based remote attestation service for monitoring the security of CopperheadOS and stock Android devices using the Copperhead Auditor app."/>
-        <link rel="stylesheet" href="/devices.css?4"/>
+        <link rel="stylesheet" href="/devices.css?5"/>
         <link rel="manifest" href="/manifest.webmanifest"/>
         <meta property="og:image" content="https://copperhead.co/logo.png"/>
     </head>
@@ -49,19 +49,20 @@
             <br/>
             <h1>Device integrity monitoring</h1>
             <p>Copperhead's hardware-based remote attestation service for monitoring the security of CopperheadOS and stock Android devices using <a href="https://play.google.com/store/apps/details?id=co.copperhead.attestation">the Copperhead Auditor app</a>.</p>
-            <p>Subscribe a device to regularly submitting attestations to this account by pressing 'Enable remote verification' in the Auditor app menu and scanning the QR code for this account:</p>
-            <img id="qr" height="300" width="300" alt="" src="/placeholder.png"/>
-            <p id="demo" class="hidden"><strong>This is a public demo account for previewing the service without creating an account.</strong></p>
-            <button id="rotate" class="hidden">Rotate device subscription key</button>
-            <form id="configuration" class="hidden">
-                <h2>Configuration:</h2>
-                <label>Verify interval (hours): <input name="verify_interval" type="number" min="1" max="168" required="required"/></label><br/>
-                <label>Permitted delay until alerts (hours): <input name="alert_delay" type="number" min="2" max="336" required="required"/></label><br/>
-                <label>Alert email: <input name="email" type="email"/></label><br/>
-                <button name="submit">Set configuration</button>
-            </form>
-            <div id="devices"><p>Loading device data...</p></div>
-            <script src="/devices.js?10"></script>
+            <div id="account_content" class="hidden">
+                <p>Subscribe a device to regularly submitting attestations to this account by pressing 'Enable remote verification' in the Auditor app menu and scanning the QR code for this account:</p>
+                <img id="qr" height="300" width="300" alt="" src="/placeholder.png"/>
+                <button id="rotate">Rotate device subscription key</button>
+                <form id="configuration">
+                    <h2>Configuration:</h2>
+                    <label>Verify interval (hours): <input name="verify_interval" type="number" min="1" max="168" required="required"/></label><br/>
+                    <label>Permitted delay until alerts (hours): <input name="alert_delay" type="number" min="2" max="336" required="required"/></label><br/>
+                    <label>Alert email: <input name="email" type="email"/></label><br/>
+                    <button name="submit">Set configuration</button>
+                </form>
+                <div id="devices"></div>
+                <script src="/devices.js?11"></script>
+            </div>
         </div>
     </body>
 </html>

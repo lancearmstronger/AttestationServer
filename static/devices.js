@@ -49,10 +49,9 @@ const logoutEverywhere = document.getElementById("logout_everywhere");
 const logoutButtons = document.getElementById("logout_buttons");
 const configuration = document.getElementById("configuration");
 const devices = document.getElementById("devices");
-const demo = document.getElementById("demo");
 const qr = document.getElementById("qr");
 const rotate = document.getElementById("rotate");
-devices.style.display = "block";
+const accountContent = document.getElementById("account_content");
 
 const deviceAdminStrings = {
     0: "no",
@@ -79,11 +78,7 @@ function toYesNoString(value) {
     return value ? "yes" : "no";
 }
 
-function showDemo() {
-    demo.style.display = "block";
-    qr.src = "/account.png";
-    qr.alt = "demo account QR code";
-    fetchDevices(true);
+function showLoggedOut() {
     formToggles.style.display = "inline";
 }
 
@@ -96,7 +91,6 @@ function reloadQrCode() {
         }
         return response.blob();
     }).then(imageBlob => {
-        demo.style.display = "none";
         qr.src = URL.createObjectURL(imageBlob);
         qr.alt = "account QR code";
         rotate.style.display = "block";
@@ -112,26 +106,20 @@ function displayLogin(account) {
     loginForm.submit.disabled = false;
     logoutButtons.style.display = "inline";
     loginStatus.innerHTML = `Logged in as <strong>${account.username}</strong>.`
-    configuration.style.display = "inline";
+    accountContent.style.display = "block";
     configuration.verify_interval.value = account.verifyInterval / 60 / 60;
     configuration.alert_delay.value = account.alertDelay / 60 / 60;
     if (account.email !== undefined) {
         configuration.email.value = account.email;
     }
     reloadQrCode();
-    fetchDevices(false);
+    fetchDevices();
 }
 
-function fetchDevices(demo) {
+function fetchDevices() {
     devices.innerHTML = "<p>Loading device data...</p>";
     const token = localStorage.getItem("requestToken");
-    let request;
-    if (demo) {
-        request = fetch("/devices.json");
-    } else {
-        request = fetch("/devices.json", {method: "POST", body: token, credentials: "same-origin"});
-    }
-    request.then(response => {
+    fetch("/devices.json", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
             return Promise.reject();
         }
@@ -230,7 +218,7 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
 
 const token = localStorage.getItem("requestToken");
 if (token === null) {
-    showDemo();
+    showLoggedOut();
 } else {
     fetch("/account", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (response.status === 403) {
@@ -244,7 +232,7 @@ if (token === null) {
         displayLogin(account);
     }).catch(error => {
         console.log(error);
-        showDemo();
+        showLoggedOut();
     });
 }
 
@@ -352,15 +340,14 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
 
             localStorage.removeItem("requestToken");
             loginStatus.innerHTML = "";
-            configuration.style.display = "none";
             devices.innerHTML = "";
+            accountContent.style.display = "none";
             qr.src = "/placeholder.png";
             qr.alt = "";
-            rotate.style.display = "none";
             logoutButtons.style.display = "none";
             logout.disabled = false;
             logoutEverywhere.disabled = false;
-            showDemo();
+            showLoggedOut();
         }).catch(error => {
             logout.disabled = false;
             logoutEverywhere.disabled = false;

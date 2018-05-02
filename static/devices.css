@@ -56,7 +56,7 @@ nav ul li a {
     margin: auto;
 }
 
-#devices, .hidden {
+.hidden {
     display: none;
 }
 
