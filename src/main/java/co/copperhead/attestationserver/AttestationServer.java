@@ -203,45 +203,54 @@ public class AttestationServer {
         server.start();
     }
 
-    private static class SubmitHandler implements HttpHandler {
+    private abstract static class PostHandler implements HttpHandler {
+        protected abstract void handlePost(final HttpExchange exchange) throws IOException;
+
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final InputStream input = exchange.getRequestBody();
-
-                final ByteArrayOutputStream sample = new ByteArrayOutputStream();
-                final byte[] buffer = new byte[4096];
-                for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
-                    sample.write(buffer, 0, read);
-
-                    if (sample.size() > 64 * 1024) {
-                        exchange.sendResponseHeaders(413, -1);
-                        return;
-                    }
-                }
-
-                final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
-                try {
-                    open(conn, false);
-                    final SQLiteStatement insert = conn.prepare("INSERT INTO Samples " +
-                           "(sample, time) VALUES (?, ?)");
-                    insert.bind(1, sample.toByteArray());
-                    insert.bind(2, System.currentTimeMillis());
-                    insert.step();
-                    insert.dispose();
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
-                    return;
-                } finally {
-                    conn.dispose();
-                }
-
-                exchange.sendResponseHeaders(200, -1);
-            } else {
+        public final void handle(final HttpExchange exchange) throws IOException {
+            if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
+                return;
             }
+            handlePost(exchange);
+        }
+    }
+
+    private static class SubmitHandler extends PostHandler {
+        @Override
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final InputStream input = exchange.getRequestBody();
+
+            final ByteArrayOutputStream sample = new ByteArrayOutputStream();
+            final byte[] buffer = new byte[4096];
+            for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
+                sample.write(buffer, 0, read);
+
+                if (sample.size() > 64 * 1024) {
+                    exchange.sendResponseHeaders(413, -1);
+                    return;
+                }
+            }
+
+            final SQLiteConnection conn = new SQLiteConnection(SAMPLES_DATABASE);
+            try {
+                open(conn, false);
+                final SQLiteStatement insert = conn.prepare("INSERT INTO Samples " +
+                       "(sample, time) VALUES (?, ?)");
+                insert.bind(1, sample.toByteArray());
+                insert.bind(2, System.currentTimeMillis());
+                insert.step();
+                insert.dispose();
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
+            } finally {
+                conn.dispose();
+            }
+
+            exchange.sendResponseHeaders(200, -1);
         }
     }
 
@@ -352,147 +361,99 @@ public class AttestationServer {
         }
     }
 
-    private static class CreateAccountHandler implements HttpHandler {
+    private static class CreateAccountHandler extends PostHandler {
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final String username;
-                final String password;
-                try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
-                    final JsonObject object = reader.readObject();
-                    username = object.getString("username");
-                    password = object.getString("password");
-                } catch (final ClassCastException | JsonException | NullPointerException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final String username;
+            final String password;
+            try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                final JsonObject object = reader.readObject();
+                username = object.getString("username");
+                password = object.getString("password");
+            } catch (final ClassCastException | JsonException | NullPointerException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
 
-                try {
-                    createAccount(username, password);
-                } catch (final UsernameUnavailableException e) {
-                    exchange.sendResponseHeaders(409, -1);
-                    return;
-                } catch (final GeneralSecurityException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
-                    return;
-                }
-                exchange.sendResponseHeaders(200, -1);
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+            try {
+                createAccount(username, password);
+            } catch (final UsernameUnavailableException e) {
+                exchange.sendResponseHeaders(409, -1);
+                return;
+            } catch (final GeneralSecurityException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
+            }
+            exchange.sendResponseHeaders(200, -1);
+        }
+    }
+
+    private static class LoginHandler extends PostHandler {
+        @Override
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final String username;
+            final String password;
+            try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                final JsonObject object = reader.readObject();
+                username = object.getString("username");
+                password = object.getString("password");
+            } catch (final ClassCastException | JsonException | NullPointerException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+
+            final Session session;
+            try {
+                session = login(username, password);
+            } catch (final UsernameUnavailableException e) {
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            } catch (final GeneralSecurityException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(403, -1);
+                return;
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
+            }
+
+            final Base64.Encoder encoder = Base64.getEncoder();
+            final byte[] requestToken = encoder.encode(session.requestToken);
+            exchange.getResponseHeaders().set("Set-Cookie",
+                    String.format("__Host-session=%d|%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d",
+                        session.sessionId, new String(encoder.encode(session.cookieToken)),
+                        SESSION_LENGTH / 1000));
+            exchange.sendResponseHeaders(200, requestToken.length);
+            try (final OutputStream output = exchange.getResponseBody()) {
+                output.write(requestToken);
             }
         }
     }
 
-    private static class LoginHandler implements HttpHandler {
+    private static class LogoutHandler extends PostHandler {
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final String username;
-                final String password;
-                try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
-                    final JsonObject object = reader.readObject();
-                    username = object.getString("username");
-                    password = object.getString("password");
-                } catch (final ClassCastException | JsonException | NullPointerException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
-
-                final Session session;
-                try {
-                    session = login(username, password);
-                } catch (final UsernameUnavailableException e) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                } catch (final GeneralSecurityException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(403, -1);
-                    return;
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
-                    return;
-                }
-
-                final Base64.Encoder encoder = Base64.getEncoder();
-                final byte[] requestToken = encoder.encode(session.requestToken);
-                exchange.getResponseHeaders().set("Set-Cookie",
-                        String.format("__Host-session=%d|%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d",
-                            session.sessionId, new String(encoder.encode(session.cookieToken)),
-                            SESSION_LENGTH / 1000));
-                exchange.sendResponseHeaders(200, requestToken.length);
-                try (final OutputStream output = exchange.getResponseBody()) {
-                    output.write(requestToken);
-                }
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final Account account = verifySession(exchange, true, null);
+            if (account == null) {
+                return;
             }
+            clearCookie(exchange);
+            exchange.sendResponseHeaders(200, -1);
         }
     }
 
-    private static class LogoutHandler implements HttpHandler {
+    private static class LogoutEverywhereHandler extends PostHandler {
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final Account account = verifySession(exchange, true, null);
-                if (account == null) {
-                    return;
-                }
-                clearCookie(exchange);
-                exchange.sendResponseHeaders(200, -1);
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
-            }
-        }
-    }
-
-    private static class LogoutEverywhereHandler implements HttpHandler {
-        @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                try {
-                    final Account account = verifySession(exchange, false, null);
-                    if (account == null) {
-                        return;
-                    }
-                    final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
-                    try {
-                        open(conn, false);
-
-                        final SQLiteStatement select = conn.prepare("DELETE from Sessions where userId = ?");
-                        select.bind(1, account.userId);
-                        select.step();
-                        select.dispose();
-                    } finally {
-                        conn.dispose();
-                    }
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
-                    return;
-                }
-                clearCookie(exchange);
-                exchange.sendResponseHeaders(200, -1);
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
-            }
-        }
-    }
-    private static class RotateHandler implements HttpHandler {
-        @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            try {
                 final Account account = verifySession(exchange, false, null);
                 if (account == null) {
                     return;
@@ -501,27 +462,51 @@ public class AttestationServer {
                 try {
                     open(conn, false);
 
-                    final SecureRandom random = new SecureRandom();
-                    final byte[] subscribeKey = new byte[32];
-                    random.nextBytes(subscribeKey);
-
-                    final SQLiteStatement select = conn.prepare("UPDATE Accounts SET subscribeKey = ? where userId = ?");
-                    select.bind(1, subscribeKey);
-                    select.bind(2, account.userId);
+                    final SQLiteStatement select = conn.prepare("DELETE from Sessions where userId = ?");
+                    select.bind(1, account.userId);
                     select.step();
                     select.dispose();
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
-                    return;
                 } finally {
                     conn.dispose();
                 }
-                exchange.sendResponseHeaders(200, -1);
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
             }
+            clearCookie(exchange);
+            exchange.sendResponseHeaders(200, -1);
+        }
+    }
+
+    private static class RotateHandler extends PostHandler {
+        @Override
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final Account account = verifySession(exchange, false, null);
+            if (account == null) {
+                return;
+            }
+            final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+            try {
+                open(conn, false);
+
+                final SecureRandom random = new SecureRandom();
+                final byte[] subscribeKey = new byte[32];
+                random.nextBytes(subscribeKey);
+
+                final SQLiteStatement select = conn.prepare("UPDATE Accounts SET subscribeKey = ? where userId = ?");
+                select.bind(1, subscribeKey);
+                select.bind(2, account.userId);
+                select.step();
+                select.dispose();
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
+            } finally {
+                conn.dispose();
+            }
+            exchange.sendResponseHeaders(200, -1);
         }
     }
 
@@ -636,45 +621,39 @@ public class AttestationServer {
         }
     }
 
-    private static class AccountHandler implements HttpHandler {
+    private static class AccountHandler extends PostHandler {
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final Account account = verifySession(exchange, false, null);
-                if (account == null) {
-                    return;
-                }
-                final JsonObjectBuilder accountJson = Json.createObjectBuilder();
-                accountJson.add("username", account.username);
-                accountJson.add("verifyInterval", account.verifyInterval);
-                accountJson.add("alertDelay", account.alertDelay);
-
-                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
-                try {
-                    open(conn, true);
-                    final SQLiteStatement select = conn.prepare("SELECT address FROM EmailAddresses WHERE userId = ?");
-                    select.bind(1, account.userId);
-                    if (select.step()) {
-                        accountJson.add("email", select.columnString(0));
-                    }
-                    select.dispose();
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
-                    return;
-                } finally {
-                    conn.dispose();
-                }
-
-                exchange.sendResponseHeaders(200, 0);
-                try (final OutputStream output = exchange.getResponseBody();
-                        final JsonWriter writer = Json.createWriter(output)) {
-                    writer.write(accountJson.build());
-                }
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final Account account = verifySession(exchange, false, null);
+            if (account == null) {
                 return;
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+            }
+            final JsonObjectBuilder accountJson = Json.createObjectBuilder();
+            accountJson.add("username", account.username);
+            accountJson.add("verifyInterval", account.verifyInterval);
+            accountJson.add("alertDelay", account.alertDelay);
+
+            final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+            try {
+                open(conn, true);
+                final SQLiteStatement select = conn.prepare("SELECT address FROM EmailAddresses WHERE userId = ?");
+                select.bind(1, account.userId);
+                if (select.step()) {
+                    accountJson.add("email", select.columnString(0));
+                }
+                select.dispose();
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
+            } finally {
+                conn.dispose();
+            }
+
+            exchange.sendResponseHeaders(200, 0);
+            try (final OutputStream output = exchange.getResponseBody();
+                    final JsonWriter writer = Json.createWriter(output)) {
+                writer.write(accountJson.build());
             }
         }
     }
@@ -698,113 +677,102 @@ public class AttestationServer {
         MatrixToImageWriter.writeToStream(result, "png", output);
     }
 
-    private static class AccountQrHandler implements HttpHandler {
+    private static class AccountQrHandler extends PostHandler {
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final Account account = verifySession(exchange, false, null);
-                if (account == null) {
-                    return;
-                }
-                exchange.sendResponseHeaders(200, 0);
-                try (final OutputStream output = exchange.getResponseBody()) {
-                    final String contents = "attestation.copperhead.co " +
-                        account.userId + " " +
-                        BaseEncoding.base64().encode(account.subscribeKey) + " " +
-                        account.verifyInterval;
-                    createQrCode(contents.getBytes(), output);
-                }
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final Account account = verifySession(exchange, false, null);
+            if (account == null) {
                 return;
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+            }
+            exchange.sendResponseHeaders(200, 0);
+            try (final OutputStream output = exchange.getResponseBody()) {
+                final String contents = "attestation.copperhead.co " +
+                    account.userId + " " +
+                    BaseEncoding.base64().encode(account.subscribeKey) + " " +
+                    account.verifyInterval;
+                createQrCode(contents.getBytes(), output);
             }
         }
     }
 
-    private static class ConfigurationHandler implements HttpHandler {
+    private static class ConfigurationHandler extends PostHandler {
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final int verifyInterval;
-                final int alertDelay;
-                final String email;
-                final String requestToken;
-                try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
-                    final JsonObject object = reader.readObject();
-                    requestToken = object.getString("requestToken");
-                    verifyInterval = object.getInt("verifyInterval");
-                    alertDelay = object.getInt("alertDelay");
-                    email = object.getString("email");
-                } catch (final ClassCastException | JsonException | NullPointerException e) {
-                    e.printStackTrace();
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final int verifyInterval;
+            final int alertDelay;
+            final String email;
+            final String requestToken;
+            try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                final JsonObject object = reader.readObject();
+                requestToken = object.getString("requestToken");
+                verifyInterval = object.getInt("verifyInterval");
+                alertDelay = object.getInt("alertDelay");
+                email = object.getString("email");
+            } catch (final ClassCastException | JsonException | NullPointerException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+
+            final Account account = verifySession(exchange, false, requestToken.getBytes(StandardCharsets.UTF_8));
+            if (account == null) {
+                return;
+            }
+
+            if (verifyInterval < 3600 || verifyInterval > 604800) {
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+
+            if (alertDelay < 7200 || alertDelay > 1209600 || alertDelay <= verifyInterval) {
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+
+            if (!email.isEmpty()) {
+                try {
+                    new InternetAddress(email).validate();
+                } catch (final AddressException e) {
                     exchange.sendResponseHeaders(400, -1);
                     return;
                 }
+            }
 
-                final Account account = verifySession(exchange, false, requestToken.getBytes(StandardCharsets.UTF_8));
-                if (account == null) {
-                    return;
-                }
+            final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+            try {
+                open(conn, false);
 
-                if (verifyInterval < 3600 || verifyInterval > 604800) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
+                conn.exec("BEGIN TRANSACTION");
 
-                if (alertDelay < 7200 || alertDelay > 1209600 || alertDelay <= verifyInterval) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
+                final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ?, alertDelay = ? WHERE userId = ?");
+                update.bind(1, verifyInterval);
+                update.bind(2, alertDelay);
+                update.bind(3, account.userId);
+                update.step();
+                update.dispose();
+
+                final SQLiteStatement delete = conn.prepare("DELETE FROM EmailAddresses WHERE userId = ?");
+                delete.bind(1, account.userId);
+                delete.step();
+                delete.dispose();
 
                 if (!email.isEmpty()) {
-                    try {
-                        new InternetAddress(email).validate();
-                    } catch (final AddressException e) {
-                        exchange.sendResponseHeaders(400, -1);
-                        return;
-                    }
+                    final SQLiteStatement insert = conn.prepare("INSERT INTO EmailAddresses (userId, address) VALUES (?, ?)");
+                    insert.bind(1, account.userId);
+                    insert.bind(2, email);
+                    insert.step();
+                    insert.dispose();
                 }
 
-                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
-                try {
-                    open(conn, false);
-
-                    conn.exec("BEGIN TRANSACTION");
-
-                    final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ?, alertDelay = ? WHERE userId = ?");
-                    update.bind(1, verifyInterval);
-                    update.bind(2, alertDelay);
-                    update.bind(3, account.userId);
-                    update.step();
-                    update.dispose();
-
-                    final SQLiteStatement delete = conn.prepare("DELETE FROM EmailAddresses WHERE userId = ?");
-                    delete.bind(1, account.userId);
-                    delete.step();
-                    delete.dispose();
-
-                    if (!email.isEmpty()) {
-                        final SQLiteStatement insert = conn.prepare("INSERT INTO EmailAddresses (userId, address) VALUES (?, ?)");
-                        insert.bind(1, account.userId);
-                        insert.bind(2, email);
-                        insert.step();
-                        insert.dispose();
-                    }
-
-                    conn.exec("COMMIT TRANSACTION");
-                } catch (final SQLiteException e) {
-                    e.printStackTrace();
-                    exchange.sendResponseHeaders(500, -1);
-                    return;
-                } finally {
-                    conn.dispose();
-                }
-                exchange.sendResponseHeaders(200, -1);
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+                conn.exec("COMMIT TRANSACTION");
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
+            } finally {
+                conn.dispose();
             }
+            exchange.sendResponseHeaders(200, -1);
         }
     }
 
@@ -899,126 +867,111 @@ public class AttestationServer {
         }
     }
 
-    private static class DevicesHandler implements HttpHandler {
+    private static class DevicesHandler extends PostHandler {
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final Account account = verifySession(exchange, false, null);
-                if (account == null) {
-                    return;
-                }
-                writeDevicesJson(exchange, account.userId);
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final Account account = verifySession(exchange, false, null);
+            if (account == null) {
+                return;
+            }
+            writeDevicesJson(exchange, account.userId);
+        }
+    }
+
+    private static class ChallengeHandler extends PostHandler {
+        @Override
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final byte[] challenge = AttestationProtocol.getChallenge();
+            pendingChallenges.put(ByteBuffer.wrap(challenge), true);
+
+            final byte[] challengeMessage =
+                    Bytes.concat(new byte[]{AttestationProtocol.PROTOCOL_VERSION},
+                            new byte[AttestationProtocol.CHALLENGE_LENGTH], challenge);
+
+            exchange.sendResponseHeaders(200, challengeMessage.length);
+            try (final OutputStream output = exchange.getResponseBody()) {
+                output.write(challengeMessage);
             }
         }
     }
 
-    private static class ChallengeHandler implements HttpHandler {
+    private static class VerifyHandler extends PostHandler {
         @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final byte[] challenge = AttestationProtocol.getChallenge();
-                pendingChallenges.put(ByteBuffer.wrap(challenge), true);
-
-                final byte[] challengeMessage =
-                        Bytes.concat(new byte[]{AttestationProtocol.PROTOCOL_VERSION},
-                                new byte[AttestationProtocol.CHALLENGE_LENGTH], challenge);
-
-                exchange.sendResponseHeaders(200, challengeMessage.length);
-                try (final OutputStream output = exchange.getResponseBody()) {
-                    output.write(challengeMessage);
-                }
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final List<String> authorization = exchange.getRequestHeaders().get("Authorization");
+            if (authorization == null) {
+                exchange.sendResponseHeaders(400, -1);
+                return;
             }
-        }
-    }
+            final String[] tokens = authorization.get(0).split(" ");
+            if (!tokens[0].equals("Auditor") || tokens.length < 2 || tokens.length > 3) {
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+            final long userId = Long.parseLong(tokens[1]);
+            final String subscribeKey = tokens.length == 3 ? tokens[2] : null;
 
-    private static class VerifyHandler implements HttpHandler {
-        @Override
-        public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                final List<String> authorization = exchange.getRequestHeaders().get("Authorization");
-                if (authorization == null) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
-                final String[] tokens = authorization.get(0).split(" ");
-                if (!tokens[0].equals("Auditor") || tokens.length < 2 || tokens.length > 3) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
-                final long userId = Long.parseLong(tokens[1]);
-                final String subscribeKey = tokens.length == 3 ? tokens[2] : null;
+            final byte[] currentSubscribeKey;
+            final int verifyInterval;
+            final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+            try {
+                open(conn, true);
 
-                final byte[] currentSubscribeKey;
-                final int verifyInterval;
-                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
-                try {
-                    open(conn, true);
+                final SQLiteStatement select = conn.prepare("SELECT subscribeKey, verifyInterval FROM Accounts WHERE userId = ?");
+                select.bind(1, userId);
+                select.step();
+                currentSubscribeKey = select.columnBlob(0);
+                verifyInterval = select.columnInt(1);
+                select.dispose();
+            } catch (final SQLiteException e) {
+                exchange.sendResponseHeaders(403, -1);
+                return;
+            } finally {
+                conn.dispose();
+            }
 
-                    final SQLiteStatement select = conn.prepare("SELECT subscribeKey, verifyInterval FROM Accounts WHERE userId = ?");
-                    select.bind(1, userId);
-                    select.step();
-                    currentSubscribeKey = select.columnBlob(0);
-                    verifyInterval = select.columnInt(1);
-                    select.dispose();
-                } catch (final SQLiteException e) {
-                    exchange.sendResponseHeaders(403, -1);
-                    return;
-                } finally {
-                    conn.dispose();
-                }
+            if (subscribeKey != null && !MessageDigest.isEqual(BaseEncoding.base64().decode(subscribeKey),
+                    currentSubscribeKey)) {
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
 
-                if (subscribeKey != null && !MessageDigest.isEqual(BaseEncoding.base64().decode(subscribeKey),
-                        currentSubscribeKey)) {
-                    exchange.sendResponseHeaders(400, -1);
-                    return;
-                }
+            final InputStream input = exchange.getRequestBody();
 
-                final InputStream input = exchange.getRequestBody();
+            final ByteArrayOutputStream attestation = new ByteArrayOutputStream();
+            final byte[] buffer = new byte[4096];
+            for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
+                attestation.write(buffer, 0, read);
 
-                final ByteArrayOutputStream attestation = new ByteArrayOutputStream();
-                final byte[] buffer = new byte[4096];
-                for (int read = input.read(buffer); read != -1; read = input.read(buffer)) {
-                    attestation.write(buffer, 0, read);
-
-                    if (attestation.size() > AttestationProtocol.MAX_MESSAGE_SIZE) {
-                        final byte[] response = "Attestation too large".getBytes();
-                        exchange.sendResponseHeaders(400, response.length);
-                        try (final OutputStream output = exchange.getResponseBody()) {
-                            output.write(response);
-                        }
-                        return;
-                    }
-                }
-
-                final byte[] attestationResult = attestation.toByteArray();
-
-                try {
-                    AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, userId, subscribeKey == null);
-                } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
-                    e.printStackTrace();
-                    final byte[] response = "Error\n".getBytes();
+                if (attestation.size() > AttestationProtocol.MAX_MESSAGE_SIZE) {
+                    final byte[] response = "Attestation too large".getBytes();
                     exchange.sendResponseHeaders(400, response.length);
                     try (final OutputStream output = exchange.getResponseBody()) {
                         output.write(response);
                     }
                     return;
                 }
+            }
 
-                final byte[] result = (BaseEncoding.base64().encode(currentSubscribeKey) + " " +
-                        verifyInterval).getBytes();
-                exchange.sendResponseHeaders(200, result.length);
+            final byte[] attestationResult = attestation.toByteArray();
+
+            try {
+                AttestationProtocol.verifySerialized(attestationResult, pendingChallenges, userId, subscribeKey == null);
+            } catch (final BufferUnderflowException | DataFormatException | GeneralSecurityException | IOException e) {
+                e.printStackTrace();
+                final byte[] response = "Error\n".getBytes();
+                exchange.sendResponseHeaders(400, response.length);
                 try (final OutputStream output = exchange.getResponseBody()) {
-                    output.write(result);
+                    output.write(response);
                 }
-            } else {
-                exchange.getResponseHeaders().set("Allow", "POST");
-                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+
+            final byte[] result = (BaseEncoding.base64().encode(currentSubscribeKey) + " " +
+                    verifyInterval).getBytes();
+            exchange.sendResponseHeaders(200, result.length);
+            try (final OutputStream output = exchange.getResponseBody()) {
+                output.write(result);
             }
         }
     }
