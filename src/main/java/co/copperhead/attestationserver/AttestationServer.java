@@ -76,7 +76,6 @@ public class AttestationServer {
     private static final int DEFAULT_ALERT_DELAY = 24 * 60 * 60;
     private static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
-    private static final byte[] DEMO_SUBSCRIBE_KEY = new byte[32];
     private static final long SESSION_LENGTH = 48 * 60 * 60 * 1000;
 
     private static final Cache<ByteBuffer, Boolean> pendingChallenges = Caffeine.newBuilder()
@@ -165,7 +164,7 @@ public class AttestationServer {
                     "oemUnlockAllowed INTEGER CHECK (oemUnlockAllowed in (0, 1)),\n" +
                     "verifiedTimeFirst INTEGER NOT NULL,\n" +
                     "verifiedTimeLast INTEGER NOT NULL,\n" +
-                    "userId INTEGER REFERENCES Accounts (userId) ON DELETE CASCADE\n" +
+                    "userId INTEGER NOT NULL REFERENCES Accounts (userId) ON DELETE CASCADE\n" +
                     ")");
             attestationConn.exec("CREATE INDEX IF NOT EXISTS Devices_userId_verifiedTimeFirst " +
                     "ON Devices (userId, verifiedTimeFirst)");
@@ -703,16 +702,7 @@ public class AttestationServer {
     private static class AccountQrHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-                exchange.getResponseHeaders().set("Cache-Control", "public, max-age=1800");
-                exchange.sendResponseHeaders(200, 0);
-                try (final OutputStream output = exchange.getResponseBody()) {
-                    final String contents = "attestation.copperhead.co 0 " +
-                            BaseEncoding.base64().encode(DEMO_SUBSCRIBE_KEY) +
-                            " " + DEFAULT_VERIFY_INTERVAL;
-                    createQrCode(contents.getBytes(), output);
-                }
-            } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 final Account account = verifySession(exchange, false, null);
                 if (account == null) {
                     return;
@@ -913,9 +903,7 @@ public class AttestationServer {
     private static class DevicesHandler implements HttpHandler {
         @Override
         public void handle(final HttpExchange exchange) throws IOException {
-            if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-                writeDevicesJson(exchange, 0);
-            } else if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 final Account account = verifySession(exchange, false, null);
                 if (account == null) {
                     return;
@@ -969,26 +957,21 @@ public class AttestationServer {
 
                 final byte[] currentSubscribeKey;
                 final int verifyInterval;
-                if (userId != 0) {
-                    final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
-                    try {
-                        open(conn, true);
+                final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+                try {
+                    open(conn, true);
 
-                        final SQLiteStatement select = conn.prepare("SELECT subscribeKey, verifyInterval FROM Accounts WHERE userId = ?");
-                        select.bind(1, userId);
-                        select.step();
-                        currentSubscribeKey = select.columnBlob(0);
-                        verifyInterval = select.columnInt(1);
-                        select.dispose();
-                    } catch (final SQLiteException e) {
-                        exchange.sendResponseHeaders(403, -1);
-                        return;
-                    } finally {
-                        conn.dispose();
-                    }
-                } else {
-                    currentSubscribeKey = DEMO_SUBSCRIBE_KEY;
-                    verifyInterval = DEFAULT_VERIFY_INTERVAL;
+                    final SQLiteStatement select = conn.prepare("SELECT subscribeKey, verifyInterval FROM Accounts WHERE userId = ?");
+                    select.bind(1, userId);
+                    select.step();
+                    currentSubscribeKey = select.columnBlob(0);
+                    verifyInterval = select.columnInt(1);
+                    select.dispose();
+                } catch (final SQLiteException e) {
+                    exchange.sendResponseHeaders(403, -1);
+                    return;
+                } finally {
+                    conn.dispose();
                 }
 
                 if (subscribeKey != null && !MessageDigest.isEqual(BaseEncoding.base64().decode(subscribeKey),

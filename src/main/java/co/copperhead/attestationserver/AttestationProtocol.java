@@ -649,9 +649,7 @@ class AttestationProtocol {
                 }
                 insert.bind(17, now);
                 insert.bind(18, now);
-                if (userId != 0) {
-                    insert.bind(19, userId);
-                }
+                insert.bind(19, userId);
                 insert.step();
                 insert.dispose();
 
