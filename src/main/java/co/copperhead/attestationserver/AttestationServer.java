@@ -716,7 +716,7 @@ public class AttestationServer {
                 }
                 return;
             } else {
-                exchange.getResponseHeaders().set("Allow", "GET, POST");
+                exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
             }
         }
@@ -909,7 +909,7 @@ public class AttestationServer {
                 }
                 writeDevicesJson(exchange, account.userId);
             } else {
-                exchange.getResponseHeaders().set("Allow", "GET, POST");
+                exchange.getResponseHeaders().set("Allow", "POST");
                 exchange.sendResponseHeaders(405, -1);
             }
         }
