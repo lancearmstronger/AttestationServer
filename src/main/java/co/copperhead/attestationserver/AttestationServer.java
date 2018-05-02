@@ -70,7 +70,6 @@ import static attestationserver.AttestationProtocol.fingerprintsCopperheadOS;
 import static attestationserver.AttestationProtocol.fingerprintsStock;
 
 public class AttestationServer {
-    private static final Path CHALLENGE_INDEX_PATH = Paths.get("challenge_index.bin");
     private static final File SAMPLES_DATABASE = new File("samples.db");
     private static final int DEFAULT_VERIFY_INTERVAL = 4 * 60 * 60;
     private static final int DEFAULT_ALERT_DELAY = 24 * 60 * 60;
