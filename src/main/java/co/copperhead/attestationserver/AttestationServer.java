@@ -72,7 +72,11 @@ import static attestationserver.AttestationProtocol.fingerprintsStock;
 public class AttestationServer {
     private static final File SAMPLES_DATABASE = new File("samples.db");
     private static final int DEFAULT_VERIFY_INTERVAL = 4 * 60 * 60;
+    private static final int MIN_VERIFY_INTERVAL = 60 * 60;
+    private static final int MAX_VERIFY_INTERVAL = 7 * 24 * 70 * 60;
     private static final int DEFAULT_ALERT_DELAY = 24 * 60 * 60;
+    private static final int MIN_ALERT_DELAY = 2 * 60 * 60;
+    private static final int MAX_ALERT_DELAY = 2 * 7 * 24 * 60 * 60;
     private static final int BUSY_TIMEOUT = 10 * 1000;
     private static final int QR_CODE_SIZE = 300;
     private static final long SESSION_LENGTH = 48 * 60 * 60 * 1000;
@@ -719,12 +723,12 @@ public class AttestationServer {
                 return;
             }
 
-            if (verifyInterval < 3600 || verifyInterval > 604800) {
+            if (verifyInterval < MIN_VERIFY_INTERVAL || verifyInterval > MAX_VERIFY_INTERVAL) {
                 exchange.sendResponseHeaders(400, -1);
                 return;
             }
 
-            if (alertDelay < 7200 || alertDelay > 1209600 || alertDelay <= verifyInterval) {
+            if (alertDelay < MIN_ALERT_DELAY || alertDelay > MAX_ALERT_DELAY || alertDelay <= verifyInterval) {
                 exchange.sendResponseHeaders(400, -1);
                 return;
             }
