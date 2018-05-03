@@ -114,7 +114,9 @@ class AlertDispatcher implements Runnable {
                                 message.setFrom(new InternetAddress(username));
                                 message.setRecipients(Message.RecipientType.TO,
                                         InternetAddress.parse(address));
-                                message.setSubject("Devices have failed to provide valid attestations before the expiry time");
+                                message.setSubject(
+                                        "Devices failed to provide valid attestations within " +
+                                        alertDelay / 60 / 60 + " hours");
                                 message.setText("The following devices have failed to provide valid attestations before the expiry time:\n\n" +
                                         body.toString());
 
