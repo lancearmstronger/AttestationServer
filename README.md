@@ -1,3 +1,16 @@
+## Email alert configuration
+
+In order to send email alerts, AttestationServer needs to be configured with valid credentials for
+an SMTP server. The configuration is stored in the `Configuration` table in the database and can
+be safely modified while the server is running to have it kick in for the next email alert cycle.
+
+Only SMTPS (SMTP over TLS) with a valid certificate is supported. STARTTLS is deliberately not
+supported because it's less secure.
+
+For example, making an initial configuration:
+
+    sqlite3 attestation.db "INSERT INTO Configuration VALUES ('emailUsername', 'attestation@copperhead.co'), ('emailPassword', '<password>'), ('emailHost', 'smtp.fastmail.com'), ('emailPort', '465')"
+
 ## API for the Auditor app
 
 ### QR code
