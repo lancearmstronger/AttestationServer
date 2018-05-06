@@ -264,6 +264,14 @@ public class AttestationServer {
         }
     }
 
+    private static final SecureRandom random = new SecureRandom();
+
+    private static byte[] generateRandomToken() {
+        final byte[] token = new byte[32];
+        random.nextBytes(token);
+        return token;
+    }
+
     private static byte[] hash(final byte[] password, final byte[] salt) {
         return SCrypt.generate(password, salt, 32768, 8, 1, 32);
     }
@@ -285,12 +293,9 @@ public class AttestationServer {
         }
         validatePassword(password);
 
-        final SecureRandom random = new SecureRandom();
-        final byte[] passwordSalt = new byte[32];
-        random.nextBytes(passwordSalt);
+        final byte[] passwordSalt = generateRandomToken();
         final byte[] passwordHash = hash(password.getBytes(), passwordSalt);
-        final byte[] subscribeKey = new byte[32];
-        random.nextBytes(subscribeKey);
+        final byte[] subscribeKey = generateRandomToken();
 
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
@@ -339,9 +344,7 @@ public class AttestationServer {
                 throw new GeneralSecurityException("invalid password");
             }
 
-            final SecureRandom random = new SecureRandom();
-            final byte[] newPasswordSalt = new byte[32];
-            random.nextBytes(newPasswordSalt);
+            final byte[] newPasswordSalt = generateRandomToken();
             final byte[] newPasswordHash = hash(newPassword.getBytes(), newPasswordSalt);
 
             final SQLiteStatement update = conn.prepare("UPDATE Accounts " +
@@ -397,11 +400,8 @@ public class AttestationServer {
             delete.step();
             delete.dispose();
 
-            final SecureRandom random = new SecureRandom();
-            final byte[] cookieToken = new byte[32];
-            random.nextBytes(cookieToken);
-            final byte[] requestToken = new byte[32];
-            random.nextBytes(requestToken);
+            final byte[] cookieToken = generateRandomToken();
+            final byte[] requestToken = generateRandomToken();
 
             final SQLiteStatement insert = conn.prepare("INSERT INTO Sessions " +
                     "(userId, cookieToken, requestToken, expiryTime) VALUES (?, ?, ?, ?)");
@@ -584,9 +584,7 @@ public class AttestationServer {
             try {
                 open(conn, false);
 
-                final SecureRandom random = new SecureRandom();
-                final byte[] subscribeKey = new byte[32];
-                random.nextBytes(subscribeKey);
+                final byte[] subscribeKey = generateRandomToken();
 
                 final SQLiteStatement select = conn.prepare("UPDATE Accounts SET subscribeKey = ? where userId = ?");
                 select.bind(1, subscribeKey);
