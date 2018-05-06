@@ -319,6 +319,7 @@ public class AttestationServer {
 
     private static void changePassword(final long userId, final String currentPassword, final String newPassword)
             throws GeneralSecurityException, SQLiteException {
+        validatePassword(currentPassword);
         validatePassword(newPassword);
 
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
@@ -371,6 +372,8 @@ public class AttestationServer {
 
     private static Session login(final String username, final String password)
             throws GeneralSecurityException, SQLiteException {
+        validatePassword(password);
+
         final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
             open(conn, false);
