@@ -16,20 +16,23 @@ import java.util.Properties;
 
 import com.google.common.io.BaseEncoding;
 
-class AlertDispatcher implements Runnable {
+class Maintenance implements Runnable {
     private static final long WAIT_MS = 15 * 60 * 1000;
     private static final int TIMEOUT_MS = 30 * 1000;
+    private static final int DELETE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
     private final SQLiteConnection conn;
+    private final SQLiteStatement deleteDeletedDevices;
     private final SQLiteStatement selectConfiguration;
     private final SQLiteStatement selectAccounts;
     private final SQLiteStatement selectExpired;
     private final SQLiteStatement selectEmails;
 
-    AlertDispatcher() throws SQLiteException {
+    Maintenance() throws SQLiteException {
         conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
-            AttestationServer.open(conn, true);
+            AttestationServer.open(conn, false);
+            deleteDeletedDevices = conn.prepare("DELETE from Devices WHERE deletionTime < ?");
             selectConfiguration = conn.prepare("SELECT " +
                     "(SELECT value from Configuration where key = 'emailUsername'), " +
                     "(SELECT value from Configuration where key = 'emailPassword'), " +
@@ -54,9 +57,13 @@ class AlertDispatcher implements Runnable {
                 return;
             }
 
-            System.err.println("alert check");
+            System.err.println("maintenance");
 
             try {
+                deleteDeletedDevices.reset();
+                deleteDeletedDevices.bind(1, System.currentTimeMillis() - DELETE_EXPIRY_MS);
+                deleteDeletedDevices.step();
+
                 selectConfiguration.reset();
                 selectConfiguration.step();
                 final String username = selectConfiguration.columnString(0);

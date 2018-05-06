@@ -174,6 +174,8 @@ public class AttestationServer {
                     "ON Devices (userId, verifiedTimeFirst)");
             attestationConn.exec("CREATE INDEX IF NOT EXISTS Devices_userId_verifiedTimeLast " +
                     "ON Devices (userId, verifiedTimeLast)");
+            attestationConn.exec("CREATE INDEX IF NOT EXISTS Devices_deletionTime " +
+                    "ON Devices (deletionTime) WHERE deletionTime IS NOT NULL");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Attestations (\n" +
                     "fingerprint BLOB NOT NULL REFERENCES Devices (fingerprint) ON DELETE CASCADE,\n" +
@@ -189,7 +191,7 @@ public class AttestationServer {
             attestationConn.dispose();
         }
 
-        new Thread(new AlertDispatcher()).start();
+        new Thread(new Maintenance()).start();
 
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
         server.createContext("/submit", new SubmitHandler());
