@@ -167,7 +167,8 @@ public class AttestationServer {
                     "oemUnlockAllowed INTEGER CHECK (oemUnlockAllowed in (0, 1)),\n" +
                     "verifiedTimeFirst INTEGER NOT NULL,\n" +
                     "verifiedTimeLast INTEGER NOT NULL,\n" +
-                    "userId INTEGER NOT NULL REFERENCES Accounts (userId) ON DELETE CASCADE\n" +
+                    "userId INTEGER NOT NULL REFERENCES Accounts (userId) ON DELETE CASCADE,\n" +
+                    "deletionTime INTEGER\n" +
                     ")");
             attestationConn.exec("CREATE INDEX IF NOT EXISTS Devices_userId_verifiedTimeFirst " +
                     "ON Devices (userId, verifiedTimeFirst)");
@@ -200,6 +201,7 @@ public class AttestationServer {
         server.createContext("/account", new AccountHandler());
         server.createContext("/account.png", new AccountQrHandler());
         server.createContext("/configuration", new ConfigurationHandler());
+        server.createContext("/delete_device", new DeleteDeviceHandler());
         server.createContext("/devices.json", new DevicesHandler());
         server.createContext("/challenge", new ChallengeHandler());
         server.createContext("/verify", new VerifyHandler());
@@ -780,6 +782,52 @@ public class AttestationServer {
         }
     }
 
+    private static class DeleteDeviceHandler extends PostHandler {
+        @Override
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final String requestToken;
+            final String fingerprint;
+            try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                final JsonObject object = reader.readObject();
+                requestToken = object.getString("requestToken");
+                fingerprint = object.getString("fingerprint");
+            } catch (final ClassCastException | JsonException | NullPointerException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+
+            final Account account = verifySession(exchange, false, requestToken.getBytes(StandardCharsets.UTF_8));
+            if (account == null) {
+                return;
+            }
+
+            final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+            try {
+                open(conn, false);
+
+                final SQLiteStatement update = conn.prepare("UPDATE Devices SET deletionTime = ? WHERE userId = ? AND hex(fingerprint) = ?");
+                update.bind(1, System.currentTimeMillis());
+                update.bind(2, account.userId);
+                update.bind(3, fingerprint);
+                update.step();
+                update.dispose();
+
+                if (conn.getChanges() == 0) {
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
+            } finally {
+                conn.dispose();
+            }
+            exchange.sendResponseHeaders(200, -1);
+        }
+    }
+
     private static String convertToPem(final byte[] derEncoded) {
         return "-----BEGIN CERTIFICATE-----\n" +
                 new String(Base64.getMimeEncoder(64, "\n".getBytes()).encode(derEncoded)) +
@@ -799,7 +847,8 @@ public class AttestationServer {
                     "pinnedAppVersion, userProfileSecure, enrolledFingerprints, accessibility, " +
                     "deviceAdmin, adbEnabled, addUsersWhenLocked, denyNewUsb, oemUnlockAllowed, " +
                     "verifiedTimeFirst, verifiedTimeLast " +
-                    "FROM Devices WHERE userId is ? ORDER BY verifiedTimeFirst");
+                    "FROM Devices WHERE userId is ? AND deletionTime IS NULL " +
+                    "ORDER BY verifiedTimeFirst");
             if (userId != 0) {
                 select.bind(1, userId);
             }

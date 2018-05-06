@@ -135,8 +135,9 @@ function fetchDevices() {
                 }
             }
 
-            const info = document.createElement("p");
+            const info = document.createElement("div");
             info.innerHTML = `<h2 class="fingerprint">${fingerprint}</h2>
+<button class="delete">delete device</button>
 <h3>Verified device information:</h3>
 Device: ${device.name}<br/>
 OS: ${device.os}<br/>
@@ -194,6 +195,31 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
                 const osEnforced = document.createElement("p");
                 osEnforced.innerText = attestation.osEnforced;
                 history.append(osEnforced);
+            }
+
+            info.getElementsByClassName("delete")[0].onclick = event => {
+                if (confirm("Are you sure you want to delete the device " + fingerprint + "?")) {
+                    event.target.disabled = true;
+
+                    const data = JSON.stringify({
+                        "requestToken": localStorage.getItem("requestToken"),
+                        "fingerprint": device.fingerprint
+                    });
+                    fetch("/delete_device", {method: "POST", body: data, credentials: "same-origin"}).then(response => {
+                        if (response.status === 403) {
+                            localStorage.removeItem("requestToken");
+                        }
+                        if (!response.ok) {
+                            return Promise.reject();
+                        }
+                        event.target.disabled = false;
+                        console.log("deleted device " + device.fingerprint);
+                        devices.removeChild(info);
+                    }).catch(error => {
+                        event.target.disabled = false;
+                        console.log(error);
+                    });
+                }
             }
         }
 

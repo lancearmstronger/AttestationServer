@@ -37,7 +37,7 @@ class AlertDispatcher implements Runnable {
                     "(SELECT value from Configuration where key = 'emailPort')");
             selectAccounts = conn.prepare("SELECT userId, alertDelay FROM Accounts");
             selectExpired = conn.prepare("SELECT fingerprint FROM Devices " +
-                    "WHERE userId = ? AND verifiedTimeLast < ?");
+                    "WHERE userId = ? AND verifiedTimeLast < ? AND deletionTime IS NULL");
             selectEmails = conn.prepare("SELECT address FROM EmailAddresses WHERE userId = ?");
         } catch (final SQLiteException e) {
             conn.dispose();
