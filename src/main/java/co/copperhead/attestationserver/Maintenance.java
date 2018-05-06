@@ -60,11 +60,9 @@ class Maintenance implements Runnable {
             System.err.println("maintenance");
 
             try {
-                deleteDeletedDevices.reset();
                 deleteDeletedDevices.bind(1, System.currentTimeMillis() - DELETE_EXPIRY_MS);
                 deleteDeletedDevices.step();
 
-                selectConfiguration.reset();
                 selectConfiguration.step();
                 final String username = selectConfiguration.columnString(0);
                 final String password = selectConfiguration.columnString(1);
@@ -91,17 +89,15 @@ class Maintenance implements Runnable {
                             }
                         });
 
-                selectAccounts.reset();
                 while (selectAccounts.step()) {
                     final long userId = selectAccounts.columnLong(0);
                     final int alertDelay = selectAccounts.columnInt(1);
 
-                    selectExpired.reset();
-                    selectExpired.bind(1, userId);
-                    selectExpired.bind(2, System.currentTimeMillis() - alertDelay * 1000);
-
                     boolean alert = false;
                     final StringBuilder body = new StringBuilder();
+
+                    selectExpired.bind(1, userId);
+                    selectExpired.bind(2, System.currentTimeMillis() - alertDelay * 1000);
                     while (selectExpired.step()) {
                         alert = true;
 
@@ -109,9 +105,9 @@ class Maintenance implements Runnable {
                         final String encoded = BaseEncoding.base16().encode(fingerprint);
                         body.append("* ").append(encoded).append("\n");
                     }
+                    selectExpired.reset();
 
                     if (alert) {
-                        selectEmails.reset();
                         selectEmails.bind(1, userId);
                         while (selectEmails.step()) {
                             final String address = selectEmails.columnString(0);
@@ -132,10 +128,21 @@ class Maintenance implements Runnable {
                                 e.printStackTrace();
                             }
                         }
+                        selectEmails.reset();
                     }
                 }
             } catch (final SQLiteException e) {
                 e.printStackTrace();
+            } finally {
+                try {
+                    deleteDeletedDevices.reset();
+                    selectConfiguration.reset();
+                    selectAccounts.reset();
+                    selectExpired.reset();
+                    selectEmails.reset();
+                } catch (final SQLiteException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
