@@ -395,7 +395,7 @@ public class AttestationServer {
             }
 
             final long now = System.currentTimeMillis();
-            final SQLiteStatement delete = conn.prepare("DELETE FROM Sessions where expiryTime < ?");
+            final SQLiteStatement delete = conn.prepare("DELETE FROM Sessions WHERE expiryTime < ?");
             delete.bind(1, now);
             delete.step();
             delete.dispose();
