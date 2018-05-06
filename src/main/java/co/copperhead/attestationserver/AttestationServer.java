@@ -116,7 +116,7 @@ public class AttestationServer {
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Configuration (\n" +
                     "key TEXT PRIMARY KEY NOT NULL,\n" +
-                    "value\n" +
+                    "value NOT NULL\n" +
                     ")");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Accounts (\n" +
