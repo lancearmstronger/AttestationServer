@@ -281,6 +281,15 @@ changePasswordForm.new_password_confirm.oninput = () => {
     }
 }
 
+function clearAlertDelayValidity() {
+    if (parseInt(configuration.alert_delay.value) > parseInt(configuration.verify_interval.value)) {
+        configuration.alert_delay.setCustomValidity("");
+    }
+}
+
+configuration.verify_interval.oninput = clearAlertDelayValidity;
+configuration.alert_delay.oninput = clearAlertDelayValidity;
+
 function clearValidity() {
     this.setCustomValidity("");
 }
@@ -288,7 +297,6 @@ function clearValidity() {
 createUsername.oninput = clearValidity;
 loginUsername.oninput = clearValidity;
 loginPassword.oninput = clearValidity;
-configuration.alert_delay.oninput = clearValidity;
 
 function doLogin(username, password) {
     const loginJson = JSON.stringify({username: username, password: password});
