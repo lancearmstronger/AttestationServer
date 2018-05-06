@@ -316,6 +316,7 @@ function doLogin(username, password) {
 
 createForm.onsubmit = event => {
     event.preventDefault();
+
     const password = createPassword.value;
     if (password !== createPasswordConfirm.value) {
         createPasswordConfirm.setCustomValidity("Password does not match");
@@ -349,6 +350,7 @@ login.onclick = () => {
 
 loginForm.onsubmit = event => {
     event.preventDefault();
+
     loginForm.submit.disabled = true;
     doLogin(loginUsername.value, loginPassword.value);
 }
@@ -390,7 +392,6 @@ for (const cancel of document.getElementsByClassName("cancel")) {
 }
 
 rotate.onclick = event => {
-    event.preventDefault();
     rotate.disabled = true;
     const requestToken = localStorage.getItem("requestToken");
     fetch("/rotate", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
