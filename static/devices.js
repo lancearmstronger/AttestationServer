@@ -392,18 +392,20 @@ for (const cancel of document.getElementsByClassName("cancel")) {
 }
 
 rotate.onclick = event => {
-    rotate.disabled = true;
-    const requestToken = localStorage.getItem("requestToken");
-    fetch("/rotate", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
-        if (!response.ok) {
-            return Promise.reject();
-        }
-        rotate.disabled = false;
-        reloadQrCode();
-    }).catch(error => {
-        rotate.disabled = false;
-        console.log(error);
-    });
+    if (confirm("Are you sure you want to rotate the device subscription key?")) {
+        rotate.disabled = true;
+        const requestToken = localStorage.getItem("requestToken");
+        fetch("/rotate", {method: "POST", body: requestToken, credentials: "same-origin"}).then(response => {
+            if (!response.ok) {
+                return Promise.reject();
+            }
+            rotate.disabled = false;
+            reloadQrCode();
+        }).catch(error => {
+            rotate.disabled = false;
+            console.log(error);
+        });
+    }
 }
 
 configuration.onsubmit = event => {
