@@ -32,12 +32,12 @@ class Maintenance implements Runnable {
         conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
         try {
             AttestationServer.open(conn, false);
-            deleteDeletedDevices = conn.prepare("DELETE from Devices WHERE deletionTime < ?");
+            deleteDeletedDevices = conn.prepare("DELETE FROM Devices WHERE deletionTime < ?");
             selectConfiguration = conn.prepare("SELECT " +
-                    "(SELECT value from Configuration where key = 'emailUsername'), " +
-                    "(SELECT value from Configuration where key = 'emailPassword'), " +
-                    "(SELECT value from Configuration where key = 'emailHost'), " +
-                    "(SELECT value from Configuration where key = 'emailPort')");
+                    "(SELECT value FROM Configuration WHERE key = 'emailUsername'), " +
+                    "(SELECT value FROM Configuration WHERE key = 'emailPassword'), " +
+                    "(SELECT value FROM Configuration WHERE key = 'emailHost'), " +
+                    "(SELECT value FROM Configuration WHERE key = 'emailPort')");
             selectAccounts = conn.prepare("SELECT userId, alertDelay FROM Accounts");
             selectExpired = conn.prepare("SELECT fingerprint FROM Devices " +
                     "WHERE userId = ? AND verifiedTimeLast < ? AND deletionTime IS NULL");
