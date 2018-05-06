@@ -186,6 +186,7 @@ public class AttestationServer {
                     ")");
             attestationConn.exec("CREATE INDEX IF NOT EXISTS Attestations_fingerprint_time " +
                     "ON Attestations (fingerprint, time)");
+            attestationConn.exec("ANALYZE");
             attestationConn.exec("VACUUM");
         } finally {
             attestationConn.dispose();
