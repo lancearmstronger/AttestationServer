@@ -46,7 +46,9 @@ const loginStatus = document.getElementById("login_status");
 const formToggles = document.getElementById("form_toggles");
 const logout = document.getElementById("logout");
 const logoutEverywhere = document.getElementById("logout_everywhere");
-const logoutButtons = document.getElementById("logout_buttons");
+const accountButtons = document.getElementById("account_buttons");
+const changePassword = document.getElementById("change_password");
+const changePasswordForm = document.getElementById("change_password_form");
 const configuration = document.getElementById("configuration");
 const devices = document.getElementById("devices");
 const qr = document.getElementById("qr");
@@ -104,7 +106,7 @@ function displayLogin(account) {
     createForm.style.display = "none";
     loginForm.style.display = "none";
     loginForm.submit.disabled = false;
-    logoutButtons.style.display = "inline";
+    accountButtons.style.display = "inline";
     loginStatus.innerHTML = `Logged in as <strong>${account.username}</strong>.`
     accountContent.style.display = "block";
     configuration.verify_interval.value = account.verifyInterval / 60 / 60;
@@ -273,6 +275,12 @@ createPasswordConfirm.oninput = () => {
     }
 }
 
+changePasswordForm.new_password_confirm.oninput = () => {
+    if (changePasswordForm.new_password.value === changePasswordForm.new_password_confirm.value) {
+        changePasswordForm.new_password_confirm.setCustomValidity("");
+    }
+}
+
 function clearValidity() {
     this.setCustomValidity("");
 }
@@ -355,6 +363,13 @@ loginForm.onsubmit = event => {
     doLogin(loginUsername.value, loginPassword.value);
 }
 
+for (const cancel of document.getElementsByClassName("cancel")) {
+    cancel.onclick = function() {
+        this.parentElement.style.display = "none";
+        formToggles.style.display = "inline";
+    }
+}
+
 for (const logoutButton of document.getElementsByClassName("logout")) {
     logoutButton.onclick = () => {
         const requestToken = localStorage.getItem("requestToken");
@@ -372,7 +387,7 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
             accountContent.style.display = "none";
             qr.src = "/placeholder.png";
             qr.alt = "";
-            logoutButtons.style.display = "none";
+            accountButtons.style.display = "none";
             logout.disabled = false;
             logoutEverywhere.disabled = false;
             showLoggedOut();
@@ -384,10 +399,44 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
     }
 }
 
-for (const cancel of document.getElementsByClassName("cancel")) {
+changePassword.onclick = () => {
+    accountButtons.style.display = "none";
+    changePasswordForm.style.display = "block";
+}
+
+changePasswordForm.onsubmit = event => {
+    event.preventDefault();
+
+    const newPassword = changePasswordForm.new_password.value;
+    if (newPassword !== changePasswordForm.new_password_confirm.value) {
+        changePasswordForm.new_password_confirm.setCustomValidity("Password does not match");
+        changePasswordForm.new_password_confirm.reportValidity();
+        return;
+    }
+
+    changePasswordForm.submit.disabled = true;
+    const data = JSON.stringify({
+        "requestToken": localStorage.getItem("requestToken"),
+        "currentPassword": changePasswordForm.current_password.value,
+        "newPassword": newPassword
+    });
+    fetch("/change_password", {method: "POST", body: data, credentials: "same-origin"}).then(response => {
+        if (!response.ok) {
+            return Promise.reject();
+        }
+        changePasswordForm.submit.disabled = false;
+        accountButtons.style.display = "inline";
+        changePasswordForm.style.display = "none";
+    }).catch(error => {
+        changePasswordForm.submit.disabled = false;
+        console.log(error);
+    });
+}
+
+for (const cancel of document.getElementsByClassName("cancel_account")) {
     cancel.onclick = function() {
         this.parentElement.style.display = "none";
-        formToggles.style.display = "inline";
+        accountButtons.style.display = "inline";
     }
 }
 

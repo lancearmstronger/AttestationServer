@@ -197,6 +197,7 @@ public class AttestationServer {
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
         server.createContext("/submit", new SubmitHandler());
         server.createContext("/create_account", new CreateAccountHandler());
+        server.createContext("/change_password", new ChangePasswordHandler());
         server.createContext("/login", new LoginHandler());
         server.createContext("/logout", new LogoutHandler());
         server.createContext("/logout_everywhere", new LogoutEverywhereHandler());
@@ -271,14 +272,18 @@ public class AttestationServer {
         public UsernameUnavailableException() {}
     }
 
+    private static void validatePassword(final String password) throws GeneralSecurityException {
+        if (password.length() < 8 || password.length() > 4096) {
+            throw new GeneralSecurityException("invalid password");
+        }
+    }
+
     private static void createAccount(final String username, final String password)
             throws GeneralSecurityException, SQLiteException {
         if (username.length() > 32 || !username.matches("[a-zA-Z0-9]+")) {
             throw new GeneralSecurityException("invalid username");
         }
-        if (password.length() < 8 || password.length() > 4096) {
-            throw new GeneralSecurityException("invalid password");
-        }
+        validatePassword(password);
 
         final SecureRandom random = new SecureRandom();
         final byte[] passwordSalt = new byte[32];
@@ -307,6 +312,46 @@ public class AttestationServer {
                 throw new UsernameUnavailableException();
             }
             throw e;
+        } finally {
+            conn.dispose();
+        }
+    }
+
+    private static void changePassword(final long userId, final String currentPassword, final String newPassword)
+            throws GeneralSecurityException, SQLiteException {
+        validatePassword(newPassword);
+
+        final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+        try {
+            open(conn, false);
+
+            conn.exec("BEGIN TRANSACTION");
+
+            final SQLiteStatement select = conn.prepare("SELECT passwordHash, passwordSalt " +
+                    "FROM Accounts WHERE userId = ?");
+            select.bind(1, userId);
+            select.step();
+            final byte[] currentPasswordHash = select.columnBlob(0);
+            final byte[] currentPasswordSalt = select.columnBlob(1);
+            select.dispose();
+            if (!MessageDigest.isEqual(hash(currentPassword.getBytes(), currentPasswordSalt), currentPasswordHash)) {
+                throw new GeneralSecurityException("invalid password");
+            }
+
+            final SecureRandom random = new SecureRandom();
+            final byte[] newPasswordSalt = new byte[32];
+            random.nextBytes(newPasswordSalt);
+            final byte[] newPasswordHash = hash(newPassword.getBytes(), newPasswordSalt);
+
+            final SQLiteStatement update = conn.prepare("UPDATE Accounts " +
+                    "SET passwordHash = ?, passwordSalt = ? WHERE userId = ?");
+            update.bind(1, newPasswordHash);
+            update.bind(2, newPasswordSalt);
+            update.bind(3, userId);
+            update.step();
+            update.dispose();
+
+            conn.exec("COMMIT TRANSACTION");
         } finally {
             conn.dispose();
         }
@@ -390,6 +435,43 @@ public class AttestationServer {
             } catch (final UsernameUnavailableException e) {
                 exchange.sendResponseHeaders(409, -1);
                 return;
+            } catch (final GeneralSecurityException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            } catch (final SQLiteException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                return;
+            }
+            exchange.sendResponseHeaders(200, -1);
+        }
+    }
+
+    private static class ChangePasswordHandler extends PostHandler {
+        @Override
+        public void handlePost(final HttpExchange exchange) throws IOException {
+            final String requestToken;
+            final String currentPassword;
+            final String newPassword;
+            try (final JsonReader reader = Json.createReader(exchange.getRequestBody())) {
+                final JsonObject object = reader.readObject();
+                requestToken = object.getString("requestToken");
+                currentPassword = object.getString("currentPassword");
+                newPassword = object.getString("newPassword");
+            } catch (final ClassCastException | JsonException | NullPointerException e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(400, -1);
+                return;
+            }
+
+            final Account account = verifySession(exchange, false, requestToken.getBytes(StandardCharsets.UTF_8));
+            if (account == null) {
+                return;
+            }
+
+            try {
+                changePassword(account.userId, currentPassword, newPassword);
             } catch (final GeneralSecurityException e) {
                 e.printStackTrace();
                 exchange.sendResponseHeaders(400, -1);
