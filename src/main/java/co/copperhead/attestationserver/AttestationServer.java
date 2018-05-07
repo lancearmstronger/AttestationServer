@@ -302,7 +302,7 @@ public class AttestationServer {
             open(conn, false);
             final SQLiteStatement insert = conn.prepare("INSERT INTO Accounts " +
                     "(username, passwordHash, passwordSalt, subscribeKey, creationTime, verifyInterval, alertDelay) " +
-                    "VALUES (?, ?, ?, ?, ?, ?)");
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)");
             insert.bind(1, username);
             insert.bind(2, passwordHash);
             insert.bind(3, passwordSalt);
