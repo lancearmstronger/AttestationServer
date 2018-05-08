@@ -5,7 +5,7 @@ an SMTP server. The configuration is stored in the `Configuration` table in the 
 be safely modified while the server is running to have it kick in for the next email alert cycle.
 
 Only SMTPS (SMTP over TLS) with a valid certificate is supported. STARTTLS is deliberately not
-supported because it's less secure.
+supported because it's less secure. The username must also be the full address for sending emails.
 
 For example, making an initial configuration:
 
