@@ -118,6 +118,8 @@ public class AttestationServer {
                     "key TEXT PRIMARY KEY NOT NULL,\n" +
                     "value NOT NULL\n" +
                     ")");
+            attestationConn.exec("INSERT OR IGNORE INTO Configuration " +
+                    "(key, value) VALUES ('backups', 0)");
             attestationConn.exec(
                     "CREATE TABLE IF NOT EXISTS Accounts (\n" +
                     "userId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n" +
@@ -191,6 +193,8 @@ public class AttestationServer {
         } finally {
             attestationConn.dispose();
         }
+
+        Files.createDirectories(Paths.get("backup"));
 
         new Thread(new Maintenance()).start();
 

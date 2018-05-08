@@ -1,8 +1,11 @@
 package attestationserver;
 
+import com.almworks.sqlite4java.SQLiteBackup;
 import com.almworks.sqlite4java.SQLiteConnection;
 import com.almworks.sqlite4java.SQLiteException;
 import com.almworks.sqlite4java.SQLiteStatement;
+
+import java.io.File;
 
 import javax.mail.Message;
 import javax.mail.MessagingException;
@@ -21,35 +24,35 @@ class Maintenance implements Runnable {
     private static final int TIMEOUT_MS = 30 * 1000;
     private static final int DELETE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
-    private final SQLiteConnection conn;
-    private final SQLiteStatement deleteDeletedDevices;
-    private final SQLiteStatement selectConfiguration;
-    private final SQLiteStatement selectAccounts;
-    private final SQLiteStatement selectExpired;
-    private final SQLiteStatement selectEmails;
-
-    Maintenance() throws SQLiteException {
-        conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+    @Override
+    public void run() {
+        final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
+        final SQLiteStatement deleteDeletedDevices;
+        final SQLiteStatement selectConfiguration;
+        final SQLiteStatement updateBackups;
+        final SQLiteStatement selectAccounts;
+        final SQLiteStatement selectExpired;
+        final SQLiteStatement selectEmails;
         try {
             AttestationServer.open(conn, false);
             deleteDeletedDevices = conn.prepare("DELETE FROM Devices WHERE deletionTime < ?");
             selectConfiguration = conn.prepare("SELECT " +
+                    "(SELECT value FROM Configuration WHERE key = 'backups'), " +
                     "(SELECT value FROM Configuration WHERE key = 'emailUsername'), " +
                     "(SELECT value FROM Configuration WHERE key = 'emailPassword'), " +
                     "(SELECT value FROM Configuration WHERE key = 'emailHost'), " +
                     "(SELECT value FROM Configuration WHERE key = 'emailPort')");
+            updateBackups = conn.prepare("UPDATE Configuration SET value = value + 1 " +
+                    "WHERE key = 'backups'");
             selectAccounts = conn.prepare("SELECT userId, alertDelay FROM Accounts");
             selectExpired = conn.prepare("SELECT fingerprint FROM Devices " +
                     "WHERE userId = ? AND verifiedTimeLast < ? AND deletionTime IS NULL");
             selectEmails = conn.prepare("SELECT address FROM EmailAddresses WHERE userId = ?");
         } catch (final SQLiteException e) {
             conn.dispose();
-            throw e;
+            throw new RuntimeException(e);
         }
-    }
 
-    @Override
-    public void run() {
         while (true) {
             try {
                 Thread.sleep(WAIT_MS);
@@ -64,13 +67,23 @@ class Maintenance implements Runnable {
                 deleteDeletedDevices.step();
 
                 selectConfiguration.step();
-                final String username = selectConfiguration.columnString(0);
-                final String password = selectConfiguration.columnString(1);
-                final String host = selectConfiguration.columnString(2);
-                final String port = selectConfiguration.columnString(3);
+                final long backups = selectConfiguration.columnLong(0);
+
+                final String username = selectConfiguration.columnString(1);
+                final String password = selectConfiguration.columnString(2);
+                final String host = selectConfiguration.columnString(3);
+                final String port = selectConfiguration.columnString(4);
                 if (username == null || password == null || host == null || port == null) {
                     System.err.println("missing email configuration");
                     continue;
+                }
+
+                updateBackups.step();
+                final SQLiteBackup backup = conn.initializeBackup(new File("backup/" + backups + ".db"));
+                try {
+                    backup.backupStep(-1);
+                } finally {
+                    backup.dispose();
                 }
 
                 final Properties props = new Properties();
@@ -137,6 +150,7 @@ class Maintenance implements Runnable {
                 try {
                     deleteDeletedDevices.reset();
                     selectConfiguration.reset();
+                    updateBackups.reset();
                     selectAccounts.reset();
                     selectExpired.reset();
                     selectEmails.reset();
