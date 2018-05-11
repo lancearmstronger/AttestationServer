@@ -590,7 +590,8 @@ public class AttestationServer {
 
                 final byte[] subscribeKey = generateRandomToken();
 
-                final SQLiteStatement select = conn.prepare("UPDATE Accounts SET subscribeKey = ? where userId = ?");
+                final SQLiteStatement select = conn.prepare("UPDATE Accounts SET " +
+                        "subscribeKey = ? WHERE userId = ?");
                 select.bind(1, subscribeKey);
                 select.bind(2, account.userId);
                 select.step();
@@ -732,7 +733,8 @@ public class AttestationServer {
             final SQLiteConnection conn = new SQLiteConnection(AttestationProtocol.ATTESTATION_DATABASE);
             try {
                 open(conn, true);
-                final SQLiteStatement select = conn.prepare("SELECT address FROM EmailAddresses WHERE userId = ?");
+                final SQLiteStatement select = conn.prepare("SELECT address FROM EmailAddresses " +
+                        "WHERE userId = ?");
                 select.bind(1, account.userId);
                 if (select.step()) {
                     accountJson.add("email", select.columnString(0));
@@ -840,20 +842,23 @@ public class AttestationServer {
 
                 conn.exec("BEGIN TRANSACTION");
 
-                final SQLiteStatement update = conn.prepare("UPDATE Accounts SET verifyInterval = ?, alertDelay = ? WHERE userId = ?");
+                final SQLiteStatement update = conn.prepare("UPDATE Accounts SET " +
+                        "verifyInterval = ?, alertDelay = ? WHERE userId = ?");
                 update.bind(1, verifyInterval);
                 update.bind(2, alertDelay);
                 update.bind(3, account.userId);
                 update.step();
                 update.dispose();
 
-                final SQLiteStatement delete = conn.prepare("DELETE FROM EmailAddresses WHERE userId = ?");
+                final SQLiteStatement delete = conn.prepare("DELETE FROM EmailAddresses " +
+                        "WHERE userId = ?");
                 delete.bind(1, account.userId);
                 delete.step();
                 delete.dispose();
 
                 if (!email.isEmpty()) {
-                    final SQLiteStatement insert = conn.prepare("INSERT INTO EmailAddresses (userId, address) VALUES (?, ?)");
+                    final SQLiteStatement insert = conn.prepare("INSERT INTO EmailAddresses " +
+                            "(userId, address) VALUES (?, ?)");
                     insert.bind(1, account.userId);
                     insert.bind(2, email);
                     insert.step();
@@ -896,7 +901,8 @@ public class AttestationServer {
             try {
                 open(conn, false);
 
-                final SQLiteStatement update = conn.prepare("UPDATE Devices SET deletionTime = ? WHERE userId = ? AND hex(fingerprint) = ?");
+                final SQLiteStatement update = conn.prepare("UPDATE Devices SET " +
+                        "deletionTime = ? WHERE userId = ? AND hex(fingerprint) = ?");
                 update.bind(1, System.currentTimeMillis());
                 update.bind(2, account.userId);
                 update.bind(3, fingerprint);
@@ -1060,7 +1066,8 @@ public class AttestationServer {
             try {
                 open(conn, true);
 
-                final SQLiteStatement select = conn.prepare("SELECT subscribeKey, verifyInterval FROM Accounts WHERE userId = ?");
+                final SQLiteStatement select = conn.prepare("SELECT subscribeKey, verifyInterval " +
+                        "FROM Accounts WHERE userId = ?");
                 select.bind(1, userId);
                 select.step();
                 currentSubscribeKey = select.columnBlob(0);
