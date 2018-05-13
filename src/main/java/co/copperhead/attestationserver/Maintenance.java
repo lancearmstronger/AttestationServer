@@ -8,7 +8,7 @@ import com.almworks.sqlite4java.SQLiteStatement;
 import java.io.File;
 
 class Maintenance implements Runnable {
-    private static final long WAIT_MS = 15 * 60 * 1000;
+    private static final long WAIT_MS = 24 * 60 * 60 * 1000;
     private static final int DELETE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
     @Override
