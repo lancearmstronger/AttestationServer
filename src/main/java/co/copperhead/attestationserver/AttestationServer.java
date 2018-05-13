@@ -196,6 +196,7 @@ public class AttestationServer {
 
         Files.createDirectories(Paths.get("backup"));
 
+        new Thread(new AlertDispatcher()).start();
         new Thread(new Maintenance()).start();
 
         final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
