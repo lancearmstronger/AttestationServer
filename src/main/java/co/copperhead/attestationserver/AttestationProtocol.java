@@ -46,6 +46,9 @@ import co.copperhead.attestation.attestation.RootOfTrust;
 class AttestationProtocol {
     static final File ATTESTATION_DATABASE = new File("attestation.db");
 
+    // Developer previews set osVersion to 0 as a placeholder value.
+    private static final int DEVELOPER_PREVIEW_OS_VERSION = 0;
+
     static final int CHALLENGE_LENGTH = 32;
     private static final String SIGNATURE_ALGORITHM = "SHA256WithECDSA";
     private static final HashFunction FINGERPRINT_HASH_FUNCTION = Hashing.sha256();
@@ -388,9 +391,10 @@ class AttestationProtocol {
         if (!rootOfTrust.isDeviceLocked()) {
             throw new GeneralSecurityException("device is not locked");
         }
-        // may 0 if the bootloader is unlocked so these are checked after isDeviceLocked()
         final int osVersion = teeEnforced.getOsVersion();
-        if (osVersion < OS_VERSION_MINIMUM) {
+        if (osVersion == DEVELOPER_PREVIEW_OS_VERSION) {
+            throw new GeneralSecurityException("OS version is not a production release");
+        } else if (osVersion < OS_VERSION_MINIMUM) {
             throw new GeneralSecurityException("OS version too old");
         }
         final int osPatchLevel = teeEnforced.getOsPatchLevel();
