@@ -182,16 +182,16 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
                 }
                 history.append(p);
 
-                const teeEnforcedIntro = document.createElement("p");
-                teeEnforcedIntro.innerHTML = "<h5>Verified device information (constants omitted):</h5>";
+                const teeEnforcedIntro = document.createElement("h5");
+                teeEnforcedIntro.innerText = "Verified device information (constants omitted):";
                 history.append(teeEnforcedIntro);
 
                 const teeEnforced = document.createElement("p");
                 teeEnforced.innerText = attestation.teeEnforced;
                 history.append(teeEnforced);
 
-                const osEnforcedIntro = document.createElement("p");
-                osEnforcedIntro.innerHTML = "<h5>Information provided by the verified OS:</h5>";
+                const osEnforcedIntro = document.createElement("h5");
+                osEnforcedIntro.innerText = "Information provided by the verified OS:";
                 history.append(osEnforcedIntro);
 
                 const osEnforced = document.createElement("p");
