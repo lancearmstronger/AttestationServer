@@ -15,6 +15,7 @@ pre, .fingerprint {
 }
 
 pre {
+    margin-bottom: 0;
     white-space: pre-wrap;
     font-size: 0.8em;
 }
