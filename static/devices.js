@@ -43,6 +43,7 @@ const loginForm = document.getElementById("login_form");
 const loginUsername = document.getElementById("login_username");
 const loginPassword = document.getElementById("login_password");
 const loginStatus = document.getElementById("login_status");
+const username = document.getElementById("username");
 const formToggles = document.getElementById("form_toggles");
 const logout = document.getElementById("logout");
 const logoutEverywhere = document.getElementById("logout_everywhere");
@@ -107,7 +108,8 @@ function displayLogin(account) {
     loginForm.style.display = "none";
     loginForm.submit.disabled = false;
     accountButtons.style.display = "inline";
-    loginStatus.innerHTML = `Logged in as <strong>${account.username}</strong>.`
+    loginStatus.style.display = "inline";
+    username.innerText = account.username;
     accountContent.style.display = "block";
     configuration.verify_interval.value = account.verifyInterval / 60 / 60;
     configuration.alert_delay.value = account.alertDelay / 60 / 60;
@@ -119,7 +121,10 @@ function displayLogin(account) {
 }
 
 function fetchDevices() {
-    devices.innerHTML = "<p>Loading device data...</p>";
+    const progress = document.createElement("p");
+    progress.innerText = "Loading device data...";
+    devices.appendChild(progress);
+
     const token = localStorage.getItem("requestToken");
     fetch("/devices.json", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
@@ -166,37 +171,39 @@ OEM unlocking allowed: ${toYesNoString(device.oemUnlockAllowed)}
 First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
 Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
 <button class="toggle">show detailed history</button><div id="history-${device.fingerprint}" class="hidden"></div>`
-            devices.append(info);
+            devices.appendChild(info);
 
             const history = document.getElementById("history-" + device.fingerprint);
             for (const attestation of device.attestations) {
                 const time = document.createElement("h4");
                 time.innerText = new Date(attestation.time);
-                history.append(time);
+                history.appendChild(time);
 
                 const p = document.createElement("p");
+                const strong = document.createElement("strong");
                 if (attestation.strong) {
-                    p.innerHTML = "<strong>Successfully performed strong paired verification and identity confirmation.</strong>";
+                    strong.innerText = "Successfully performed strong paired verification and identity confirmation.";
                 } else {
-                    p.innerHTML = "<strong>Successfully performed basic initial verification and pairing.</strong>";
+                    strong.innerText = "Successfully performed basic initial verification and pairing.";
                 }
-                history.append(p);
+                p.appendChild(strong);
+                history.appendChild(p);
 
                 const teeEnforcedIntro = document.createElement("h5");
                 teeEnforcedIntro.innerText = "Verified device information (constants omitted):";
-                history.append(teeEnforcedIntro);
+                history.appendChild(teeEnforcedIntro);
 
                 const teeEnforced = document.createElement("p");
                 teeEnforced.innerText = attestation.teeEnforced;
-                history.append(teeEnforced);
+                history.appendChild(teeEnforced);
 
                 const osEnforcedIntro = document.createElement("h5");
                 osEnforcedIntro.innerText = "Information provided by the verified OS:";
-                history.append(osEnforcedIntro);
+                history.appendChild(osEnforcedIntro);
 
                 const osEnforced = document.createElement("p");
                 osEnforced.innerText = attestation.osEnforced;
-                history.append(osEnforced);
+                history.appendChild(osEnforced);
             }
 
             info.getElementsByClassName("delete")[0].onclick = event => {
@@ -240,7 +247,7 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
         }
     }).catch(error => {
         console.log(error);
-        devices.innerHTML = "<p>Failed to fetch device data.</p>"
+        progress.innerText = "Failed to fetch device data.";
     });
 }
 
@@ -390,8 +397,8 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
             }
 
             localStorage.removeItem("requestToken");
-            loginStatus.innerHTML = "";
-            devices.innerHTML = "";
+            loginStatus.style.display = "none";
+            devices.innerText = null;
             accountContent.style.display = "none";
             qr.src = "/placeholder.png";
             qr.alt = "";
