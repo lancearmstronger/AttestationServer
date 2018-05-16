@@ -118,10 +118,16 @@ function displayLogin(account) {
     fetchDevices();
 }
 
-function create(tagName, text) {
+function create(tagName, text, className) {
     const element = document.createElement(tagName);
     element.innerText = text;
+    element.className = className;
     return element;
+}
+
+function appendLine(element, text) {
+    element.appendChild(document.createTextNode(text));
+    element.appendChild(document.createElement("br"));
 }
 
 function fetchDevices() {
@@ -145,54 +151,10 @@ function fetchDevices() {
             }
 
             const info = document.createElement("div");
-            info.innerHTML = `<h2 class="fingerprint">${fingerprint}</h2>
-<button class="delete">delete device</button>
-<h3>Verified device information:</h3>
-Device: ${device.name}<br/>
-OS: ${device.os}<br/>
-OS version: ${formatOsVersion(device.pinnedOsVersion)}<br/>
-OS patch level: ${formatOsPatchLevel(device.pinnedOsPatchLevel)}<br/>
-<button class="toggle">show advanced information</button><span class="hidden"><br/>
-Certificate 0 (persistent Auditor key): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate0}</pre><br/>
-Certificate 1 (batch): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate1}</pre><br/>
-Certificate 2 (intermediate): <button class="toggle">show</button><pre class="hidden"><br/>${device.pinnedCertificate2}</pre><br/>
-Certificate 3 (root): <button class="toggle">show</button><pre class="hidden"><br/>${attestationRoot}</pre><br/>
-Verified boot key fingerprint: <span class="fingerprint">${device.verifiedBootKey}</span>
-</span>
-<h3>Information provided by the verified OS:</h3>
-Auditor app version: ${device.pinnedAppVersion - attestationAppVersionCodeOffset}<br/>
-User profile secure: ${toYesNoString(device.userProfileSecure)}<br/>
-Enrolled fingerprints: ${toYesNoString(device.enrolledFingerprints)}<br/>
-Accessibility service(s) enabled: ${toYesNoString(device.accessibility)}<br/>
-Device administrator(s) enabled: ${deviceAdminStrings[device.deviceAdmin]}<br/>
-Android Debug Bridge enabled: ${toYesNoString(device.adbEnabled)}<br/>
-Add users from lock screen: ${toYesNoString(device.addUsersWhenLocked)}<br/>
-Disallow new USB peripherals when locked: ${toYesNoString(device.denyNewUsb)}<br/>
-OEM unlocking allowed: ${toYesNoString(device.oemUnlockAllowed)}
-<h3>Attestation history</h3>
-First verified time: ${new Date(device.verifiedTimeFirst)}<br/>
-Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
-<button class="toggle">show detailed history</button><div id="history-${device.fingerprint}" class="hidden"></div>`
-            devices.appendChild(info);
+            info.appendChild(create("h2", fingerprint, "fingerprint"));
 
-            const history = document.getElementById("history-" + device.fingerprint);
-            for (const attestation of device.attestations) {
-                history.appendChild(create("h4", new Date(attestation.time)));
-
-                const p = document.createElement("p");
-                const result = attestation.strong ?
-                    "Successfully performed strong paired verification and identity confirmation." :
-                    "Successfully performed basic initial verification and pairing.";
-                p.appendChild(create("strong", result));
-                history.appendChild(p);
-
-                history.appendChild(create("h5", "Verified device information (constants omitted):"));
-                history.appendChild(create("p", attestation.teeEnforced));
-                history.appendChild(create("h5", "Information provided by the verified OS:"));
-                history.appendChild(create("p", attestation.osEnforced));
-            }
-
-            info.getElementsByClassName("delete")[0].onclick = event => {
+            const deleteButton = create("button", "delete device");
+            deleteButton.onclick = event => {
                 if (confirm("Are you sure you want to delete the device " + fingerprint + "?")) {
                     event.target.disabled = true;
 
@@ -216,18 +178,83 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
                     });
                 }
             }
+            info.appendChild(deleteButton);
+
+            info.appendChild(create("h3", "Verified device information:"));
+            appendLine(info, "Device: " + device.name);
+            appendLine(info, "OS: " + device.os);
+            appendLine(info, "OS version: " + formatOsVersion(device.pinnedOsVersion));
+            appendLine(info, "OS patch level: " + formatOsPatchLevel(device.pinnedOsPatchLevel));
+
+            info.appendChild(create("button", "show advanced information", "toggle"));
+            const advanced = info.appendChild(document.createElement("span"));
+            advanced.className = "hidden";
+            advanced.appendChild(document.createTextNode("Certificate 0 (persistent Auditor key): "));
+            advanced.appendChild(create("button", "show", "toggle"));
+            advanced.appendChild(create("pre", device.pinnedCertificate0, "hidden"));
+            advanced.appendChild(document.createElement("br"));
+            advanced.appendChild(document.createTextNode("Certificate 1 (batch): "));
+            advanced.appendChild(create("button", "show", "toggle"));
+            advanced.appendChild(create("pre", device.pinnedCertificate1, "hidden"));
+            advanced.appendChild(document.createElement("br"));
+            advanced.appendChild(document.createTextNode("Certificate 2 (intermediate): "));
+            advanced.appendChild(create("button", "show", "toggle"));
+            advanced.appendChild(create("pre", device.pinnedCertificate2, "hidden"));
+            advanced.appendChild(document.createElement("br"));
+            advanced.appendChild(document.createTextNode("Certificate 3 (root): "));
+            advanced.appendChild(create("button", "show", "toggle"));
+            advanced.appendChild(create("pre", attestationRoot, "hidden"));
+            advanced.appendChild(document.createElement("br"));
+            advanced.appendChild(document.createTextNode("Verified boot key fingerprint: "));
+            advanced.appendChild(create("span", device.verifiedBootKey, "fingerprint"));
+
+            info.appendChild(create("h3", "Information provided by the verified OS:"));
+            appendLine(info, "Auditor app version: " + (device.pinnedAppVersion - attestationAppVersionCodeOffset));
+            appendLine(info, "User profile secure: " + toYesNoString(device.userProfileSecure));
+            appendLine(info, "Enrolled fingerprints: " + toYesNoString(device.enrolledFingerprints));
+            appendLine(info, "Accessibility service(s) enabled: " + toYesNoString(device.accessibility));
+            appendLine(info, "Device administrator(s) enabled: " + deviceAdminStrings[device.deviceAdmin]);
+            appendLine(info, "Android Debug Bridge enabled: " + toYesNoString(device.adbEnabled));
+            appendLine(info, "Add users from lock screen: " + toYesNoString(device.addUsersWhenLocked));
+            appendLine(info, "Disallow new USB peripherals when locked: " + toYesNoString(device.denyNewUsb));
+            appendLine(info, "OEM unlocking allowed: " + toYesNoString(device.oemUnlockAllowed));
+
+            info.appendChild(create("h3", "Attestation history"));
+            appendLine(info, "First verified time: " + new Date(device.verifiedTimeFirst));
+            appendLine(info, "Last verified time: " + new Date(device.verifiedTimeLast));
+            info.appendChild(create("button", "show detailed history", "toggle"));
+            const history = info.appendChild(document.createElement("div"));
+            history.className = "hidden";
+
+            for (const attestation of device.attestations) {
+                history.appendChild(create("h4", new Date(attestation.time)));
+
+                const p = document.createElement("p");
+                const result = attestation.strong ?
+                    "Successfully performed strong paired verification and identity confirmation." :
+                    "Successfully performed basic initial verification and pairing.";
+                p.appendChild(create("strong", result));
+                history.appendChild(p);
+
+                history.appendChild(create("h5", "Verified device information (constants omitted):"));
+                history.appendChild(create("p", attestation.teeEnforced));
+                history.appendChild(create("h5", "Information provided by the verified OS:"));
+                history.appendChild(create("p", attestation.osEnforced));
+            }
+
+            devices.appendChild(info);
         }
 
         for (const toggle of document.getElementsByClassName("toggle")) {
             toggle.onclick = event => {
                 const target = event.target;
                 const cert = target.nextSibling;
-                if (cert.style.display === "inline") {
+                if (cert.style.display === "block") {
                     target.innerText = target.innerText.replace("hide", "show");
                     cert.style.display = "none";
                 } else {
                     target.innerText = target.innerText.replace("show", "hide");
-                    cert.style.display = "inline";
+                    cert.style.display = "block";
                 }
             }
         }
