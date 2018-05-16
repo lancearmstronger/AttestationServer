@@ -46,7 +46,6 @@ const formToggles = document.getElementById("form_toggles");
 const logout = document.getElementById("logout");
 const logoutEverywhere = document.getElementById("logout_everywhere");
 const accountButtons = document.getElementById("account_buttons");
-const changePassword = document.getElementById("change_password");
 const changePasswordForm = document.getElementById("change_password_form");
 const configuration = document.getElementById("configuration");
 const devices = document.getElementById("devices");
@@ -150,10 +149,10 @@ function fetchDevices() {
                 }
             }
 
-            const info = document.createElement("div");
+            const info = devices.appendChild(document.createElement("div"));
             info.appendChild(create("h2", fingerprint, "fingerprint"));
 
-            const deleteButton = create("button", "delete device");
+            const deleteButton = info.appendChild(create("button", "delete device"));
             deleteButton.onclick = event => {
                 if (confirm("Are you sure you want to delete the device " + fingerprint + "?")) {
                     event.target.disabled = true;
@@ -178,7 +177,6 @@ function fetchDevices() {
                     });
                 }
             }
-            info.appendChild(deleteButton);
 
             info.appendChild(create("h3", "Verified device information:"));
             appendLine(info, "Device: " + device.name);
@@ -229,20 +227,17 @@ function fetchDevices() {
             for (const attestation of device.attestations) {
                 history.appendChild(create("h4", new Date(attestation.time)));
 
-                const p = document.createElement("p");
+                const p = history.appendChild(document.createElement("p"));
                 const result = attestation.strong ?
                     "Successfully performed strong paired verification and identity confirmation." :
                     "Successfully performed basic initial verification and pairing.";
                 p.appendChild(create("strong", result));
-                history.appendChild(p);
 
                 history.appendChild(create("h5", "Verified device information (constants omitted):"));
                 history.appendChild(create("p", attestation.teeEnforced));
                 history.appendChild(create("h5", "Information provided by the verified OS:"));
                 history.appendChild(create("p", attestation.osEnforced));
             }
-
-            devices.appendChild(info);
         }
 
         for (const toggle of document.getElementsByClassName("toggle")) {
@@ -428,7 +423,7 @@ for (const logoutButton of document.getElementsByClassName("logout")) {
     }
 }
 
-changePassword.onclick = () => {
+document.getElementById("change_password").onclick = () => {
     accountButtons.style.display = "none";
     changePasswordForm.style.display = "block";
 }
