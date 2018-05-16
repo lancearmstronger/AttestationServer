@@ -1,7 +1,7 @@
 Redirect 301 /devices https://attestation.copperhead.co/devices.json
 
 Header always set Content-Security-Policy "default-src 'self'; img-src 'self' blob:; \
-form-action 'self'; object-src 'none'; block-all-mixed-content; \
+form-action 'self'; object-src 'none'; block-all-mixed-content; frame-ancestors 'none'; \
 report-uri https://copperhead.report-uri.io/r/default/csp/enforce"
 
 <FilesMatch "\.(html|ico|txt|webmanifest|xml)$">
