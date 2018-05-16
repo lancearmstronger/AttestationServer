@@ -33,12 +33,10 @@ wDB5y0USicV3YgYGmi+NZfhA4URSh77Yd6uuJOJENRaNVTzk
 -----END CERTIFICATE-----`;
 const fingerprintSplitInterval = 4;
 const attestationAppVersionCodeOffset = 9;
-const create = document.getElementById("create");
 const createForm = document.getElementById("create_form");
 const createUsername = document.getElementById("create_username");
 const createPassword = document.getElementById("create_password");
 const createPasswordConfirm = document.getElementById("create_password_confirm");
-const login = document.getElementById("login");
 const loginForm = document.getElementById("login_form");
 const loginUsername = document.getElementById("login_username");
 const loginPassword = document.getElementById("login_password");
@@ -120,10 +118,14 @@ function displayLogin(account) {
     fetchDevices();
 }
 
+function create(tagName, text) {
+    const element = document.createElement(tagName);
+    element.innerText = text;
+    return element;
+}
+
 function fetchDevices() {
-    const progress = document.createElement("p");
-    progress.innerText = "Loading device data...";
-    devices.appendChild(progress);
+    devices.appendChild(create("p", "Loading device data..."));
 
     const token = localStorage.getItem("requestToken");
     fetch("/devices.json", {method: "POST", body: token, credentials: "same-origin"}).then(response => {
@@ -175,35 +177,19 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
 
             const history = document.getElementById("history-" + device.fingerprint);
             for (const attestation of device.attestations) {
-                const time = document.createElement("h4");
-                time.innerText = new Date(attestation.time);
-                history.appendChild(time);
+                history.appendChild(create("h4", new Date(attestation.time)));
 
                 const p = document.createElement("p");
-                const strong = document.createElement("strong");
-                if (attestation.strong) {
-                    strong.innerText = "Successfully performed strong paired verification and identity confirmation.";
-                } else {
-                    strong.innerText = "Successfully performed basic initial verification and pairing.";
-                }
-                p.appendChild(strong);
+                const result = attestation.strong ?
+                    "Successfully performed strong paired verification and identity confirmation." :
+                    "Successfully performed basic initial verification and pairing.";
+                p.appendChild(create("strong", result));
                 history.appendChild(p);
 
-                const teeEnforcedIntro = document.createElement("h5");
-                teeEnforcedIntro.innerText = "Verified device information (constants omitted):";
-                history.appendChild(teeEnforcedIntro);
-
-                const teeEnforced = document.createElement("p");
-                teeEnforced.innerText = attestation.teeEnforced;
-                history.appendChild(teeEnforced);
-
-                const osEnforcedIntro = document.createElement("h5");
-                osEnforcedIntro.innerText = "Information provided by the verified OS:";
-                history.appendChild(osEnforcedIntro);
-
-                const osEnforced = document.createElement("p");
-                osEnforced.innerText = attestation.osEnforced;
-                history.appendChild(osEnforced);
+                history.appendChild(create("h5", "Verified device information (constants omitted):"));
+                history.appendChild(create("p", attestation.teeEnforced));
+                history.appendChild(create("h5", "Information provided by the verified OS:"));
+                history.appendChild(create("p", attestation.osEnforced));
             }
 
             info.getElementsByClassName("delete")[0].onclick = event => {
@@ -247,7 +233,8 @@ Last verified time: ${new Date(device.verifiedTimeLast)}<br/>
         }
     }).catch(error => {
         console.log(error);
-        progress.innerText = "Failed to fetch device data.";
+        devices.innerText = null;
+        devices.appendChild(create("p", "Failed to fetch device data."));
     });
 }
 
@@ -271,7 +258,7 @@ if (token === null) {
     });
 }
 
-create.onclick = () => {
+document.getElementById("create").onclick = () => {
     formToggles.style.display = "none";
     createForm.style.display = "block";
 }
@@ -305,7 +292,7 @@ createUsername.oninput = clearValidity;
 loginUsername.oninput = clearValidity;
 loginPassword.oninput = clearValidity;
 
-function doLogin(username, password) {
+function login(username, password) {
     const loginJson = JSON.stringify({username: username, password: password});
     fetch("/login", {method: "POST", body: loginJson, credentials: "same-origin"}).then(response => {
         if (!response.ok) {
@@ -359,14 +346,14 @@ createForm.onsubmit = event => {
         }
         createForm.submit.disabled = false;
         createForm.style.display = "none";
-        doLogin(username, password);
+        login(username, password);
     }).catch(error => {
         createForm.submit.disabled = false;
         console.log(error);
     });
 }
 
-login.onclick = () => {
+document.getElementById("login").onclick = () => {
     formToggles.style.display = "none";
     loginForm.style.display = "block";
 }
@@ -375,7 +362,7 @@ loginForm.onsubmit = event => {
     event.preventDefault();
 
     loginForm.submit.disabled = true;
-    doLogin(loginUsername.value, loginPassword.value);
+    login(loginUsername.value, loginPassword.value);
 }
 
 for (const cancel of document.getElementsByClassName("cancel")) {
