@@ -46,6 +46,14 @@ nav ul li a {
     padding: 1em;
 }
 
+a {
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
 #content {
     margin: auto;
     padding: 1em;
