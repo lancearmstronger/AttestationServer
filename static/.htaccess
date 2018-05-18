@@ -1,5 +1,3 @@
-Redirect 301 /devices https://attestation.copperhead.co/devices.json
-
 Header always set Content-Security-Policy "default-src 'none'; connect-src 'self'; \
 font-src 'self'; img-src blob: 'self'; manifest-src 'self'; script-src 'self'; style-src 'self'; \
 form-action 'self'; frame-ancestors 'none'; block-all-mixed-content; base-uri 'none'; \
