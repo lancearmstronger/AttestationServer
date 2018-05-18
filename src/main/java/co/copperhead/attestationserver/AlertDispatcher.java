@@ -28,6 +28,7 @@ class AlertDispatcher implements Runnable {
         final SQLiteStatement selectConfiguration;
         final SQLiteStatement selectAccounts;
         final SQLiteStatement selectExpired;
+        final SQLiteStatement selectFailed;
         final SQLiteStatement selectEmails;
         try {
             AttestationServer.open(conn, false);
@@ -39,6 +40,8 @@ class AlertDispatcher implements Runnable {
             selectAccounts = conn.prepare("SELECT userId, alertDelay FROM Accounts");
             selectExpired = conn.prepare("SELECT fingerprint FROM Devices " +
                     "WHERE userId = ? AND verifiedTimeLast < ? AND deletionTime IS NULL");
+            selectFailed = conn.prepare("SELECT fingerprint FROM Devices " +
+                    "WHERE userId = ? AND failureTimeLast IS NOT NULL AND deletionTime IS NULL");
             selectEmails = conn.prepare("SELECT address FROM EmailAddresses WHERE userId = ?");
         } catch (final SQLiteException e) {
             conn.dispose();
@@ -118,6 +121,37 @@ class AlertDispatcher implements Runnable {
                         }
                         selectEmails.reset();
                     }
+
+                    final StringBuilder failed = new StringBuilder();
+                    selectFailed.bind(1, userId);
+                    while (selectFailed.step()) {
+                        final byte[] fingerprint = selectFailed.columnBlob(0);
+                        final String encoded = BaseEncoding.base16().encode(fingerprint);
+                        failed.append("* ").append(encoded).append("\n");
+                    }
+                    selectFailed.reset();
+
+                    if (failed.length() > 0) {
+                        selectEmails.bind(1, userId);
+                        while (selectEmails.step()) {
+                            final String address = selectEmails.columnString(0);
+                            System.err.println("sending email to " + address);
+                            try {
+                                final Message message = new MimeMessage(session);
+                                message.setFrom(new InternetAddress(username));
+                                message.setRecipients(Message.RecipientType.TO,
+                                        InternetAddress.parse(address));
+                                message.setSubject("Devices provided invalid attestations");
+                                message.setText("The following devices have provided invalid attestations:\n\n" +
+                                        failed.toString());
+
+                                Transport.send(message);
+                            } catch (final MessagingException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        selectEmails.reset();
+                    }
                 }
             } catch (final SQLiteException e) {
                 e.printStackTrace();
@@ -126,6 +160,7 @@ class AlertDispatcher implements Runnable {
                     selectConfiguration.reset();
                     selectAccounts.reset();
                     selectExpired.reset();
+                    selectFailed.reset();
                     selectEmails.reset();
                 } catch (final SQLiteException e) {
                     e.printStackTrace();

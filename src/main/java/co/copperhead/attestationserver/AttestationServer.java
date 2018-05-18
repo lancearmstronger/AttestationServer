@@ -169,6 +169,7 @@ public class AttestationServer {
                     "oemUnlockAllowed INTEGER CHECK (oemUnlockAllowed in (0, 1)),\n" +
                     "verifiedTimeFirst INTEGER NOT NULL,\n" +
                     "verifiedTimeLast INTEGER NOT NULL,\n" +
+                    "failureTimeLast INTEGER,\n" +
                     "userId INTEGER NOT NULL REFERENCES Accounts (userId) ON DELETE CASCADE,\n" +
                     "deletionTime INTEGER\n" +
                     ")");
