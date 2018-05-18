@@ -85,21 +85,17 @@ class AlertDispatcher implements Runnable {
                     final long userId = selectAccounts.columnLong(0);
                     final int alertDelay = selectAccounts.columnInt(1);
 
-                    boolean alert = false;
-                    final StringBuilder body = new StringBuilder();
-
+                    final StringBuilder expired = new StringBuilder();
                     selectExpired.bind(1, userId);
                     selectExpired.bind(2, System.currentTimeMillis() - alertDelay * 1000);
                     while (selectExpired.step()) {
-                        alert = true;
-
                         final byte[] fingerprint = selectExpired.columnBlob(0);
                         final String encoded = BaseEncoding.base16().encode(fingerprint);
-                        body.append("* ").append(encoded).append("\n");
+                        expired.append("* ").append(encoded).append("\n");
                     }
                     selectExpired.reset();
 
-                    if (alert) {
+                    if (expired.length() > 0) {
                         selectEmails.bind(1, userId);
                         while (selectEmails.step()) {
                             final String address = selectEmails.columnString(0);
@@ -113,7 +109,7 @@ class AlertDispatcher implements Runnable {
                                         "Devices failed to provide valid attestations within " +
                                         alertDelay / 60 / 60 + " hours");
                                 message.setText("The following devices have failed to provide valid attestations before the expiry time:\n\n" +
-                                        body.toString());
+                                        expired.toString());
 
                                 Transport.send(message);
                             } catch (final MessagingException e) {
